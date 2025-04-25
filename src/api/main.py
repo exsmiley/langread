@@ -1,0 +1,1705 @@
+from typing import List, Dict, Optional, Union, Literal
+from typing import List, Dict, Optional, Union, Literal, Any
+from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Depends, Body
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from loguru import logger
+from datetime import datetime
+import json
+import re
+import requests
+from urllib.parse import urlparse
+import feedparser
+from newspaper import Article as NewspaperArticle, Config as NewspaperConfig
+from bs4 import BeautifulSoup
+import uvicorn
+import os
+import time
+import uuid
+import asyncio
+import hashlib
+import sys
+from pathlib import Path
+
+# Add the necessary directories to sys.path
+
+# Add both the src directory and the project root to sys.path
+src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(src_dir)  # Add src directory
+sys.path.append(os.path.dirname(src_dir))  # Add project root
+
+# Now import the database service
+from models.database import DatabaseService
+
+# Import ContentAgent and ArticleCache
+try:
+    from src.scrapers.agent import ContentAgent, ArticleContent, GroupedArticleContent, ContentSection
+    from src.scrapers.cache import ArticleCache
+except ImportError:
+    from scrapers.agent import ContentAgent, ArticleContent, GroupedArticleContent, ContentSection
+    from scrapers.cache import ArticleCache
+
+# Configure logging with loguru
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+logger.add("langread.log", rotation="10 MB", level="INFO")
+
+# Initialize the article cache
+article_cache = ArticleCache()
+
+# Initialize the FastAPI app
+app = FastAPI(title="LangRead API", 
+             description="API for LangRead language learning application",
+             version="0.1.0")
+
+# Initialize the database service
+db_service = DatabaseService()
+
+# Connect to MongoDB when the application starts
+@app.on_event("startup")
+async def startup():
+    await db_service.connect()
+
+# Disconnect from MongoDB when the application shuts down
+@app.on_event("shutdown")
+async def shutdown():
+    await db_service.disconnect()
+
+# Dependency to get the database service
+async def get_database_service():
+    return db_service
+
+# Dependency for getting the content agent
+async def get_content_agent():
+    # In a real app, you might want to cache this instance or use a dependency injection system
+    api_key = os.getenv("OPENAI_API_KEY")
+    return ContentAgent(openai_api_key=api_key)
+
+# Dependency for getting the article cache
+async def get_article_cache():
+    return article_cache
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://127.0.0.1:63614", "*"],  # Allow our frontend and any preview
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
+# Root endpoint
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to the LangRead API",
+        "status": "online",
+        "documentation": "/docs"
+    }
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+
+
+# Content Request Model
+class ContentRequest(BaseModel):
+    query: str
+    language: str = "ko"  # Default to Korean as per initial requirements
+    topic_type: str = "news"  # Default to news
+    max_sources: int = 5  # Default to 5 sources
+    group_and_rewrite: bool = False  # Whether to group and rewrite articles
+
+# Rewrite Request Model
+class RewriteRequest(BaseModel):
+    article_ids: Optional[List[str]] = None  # IDs of articles to rewrite, if None use all recent for query
+    query: Optional[str] = None  # If article_ids not provided, use this query to find articles
+    language: str = "ko"  # Target language for the rewritten content
+    target_difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"  # Difficulty level
+    max_sources: int = 5  # Maximum number of sources to use
+
+# Articles endpoint
+@app.post("/articles")
+async def get_articles(
+    content_request: ContentRequest,
+    background_tasks: BackgroundTasks,
+    agent: ContentAgent = Depends(get_content_agent),
+    cache: ArticleCache = Depends(get_article_cache),
+    force_refresh: bool = False
+):
+    """
+    Get articles based on query, language, and content type.
+    This endpoint uses an LLM-powered agent to search for and extract content.
+    If articles for the requested query and date exist in the cache, they will be returned.
+    Otherwise, the agent will search for and extract new articles.
+    
+    All articles are grouped by topic and rewritten as a cohesive article for language learning.
+    """
+    query = content_request.query
+    language = content_request.language
+    logs = []
+    
+    try:
+        # Check cache first unless force_refresh is True
+        if not force_refresh:
+            cached_articles = cache.get(query, language)
+            if cached_articles:
+                logger.info(f"Returning cached articles for query: {query}, language: {language}")
+                logs.append(f"[CACHE HIT] Using cached articles for: {query}")
+                
+                return {
+                    "query": query,
+                    "language": language,
+                    "topic_type": content_request.topic_type,
+                    "grouped": True,
+                    "articles": cached_articles,
+                    "source": "cache",
+                    "logs": logs,
+                    "timestamp": datetime.now().isoformat()
+                }
+        
+        # Log the fetch operation
+        logs.append(f"[FETCH] Searching for articles about: {query}")
+        logs.append(f"[FETCH] Language: {language}")
+        
+        # Always group and rewrite articles
+        start_time = datetime.now()
+        articles = await agent.get_content(
+            query=query,
+            language=language,
+            topic_type=content_request.topic_type,
+            max_sources=content_request.max_sources,
+            group_and_rewrite=True  # Always group and rewrite
+        )
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        logs.append(f"[FETCH] Found {len(articles)} articles in {processing_time:.2f} seconds")
+        
+        # Cache the articles for future requests
+        cache.set(query, language, articles, logs)
+        logs.append(f"[CACHE] Saved articles to cache")
+        
+        # Return the articles with logs
+        return {
+            "query": query,
+            "language": language,
+            "topic_type": content_request.topic_type,
+            "grouped": True,
+            "articles": articles,
+            "source": "fresh",
+            "logs": logs,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        error_msg = f"Error getting articles: {str(e)}"
+        logs.append(f"[ERROR] {error_msg}")
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Rewrite articles endpoint
+@app.post("/rewrite-articles")
+async def rewrite_articles(
+    rewrite_request: RewriteRequest,
+    agent: ContentAgent = Depends(get_content_agent)
+):
+    """
+    Rewrite articles for language learning at a specific difficulty level.
+    
+    This endpoint groups multiple articles on the same topic and rewrites them into
+    a single coherent article at the specified difficulty level with educational
+    features like key vocabulary lists.
+    """
+    try:
+        # TODO: If article_ids are provided, retrieve them from the database
+        # For now, if no article_ids, just search for new articles
+        if not rewrite_request.article_ids and not rewrite_request.query:
+            raise HTTPException(
+                status_code=400, 
+                detail="Either article_ids or query must be provided"
+            )
+        
+        articles = []
+        
+        # If article_ids not provided, search for articles with the query
+        if not rewrite_request.article_ids and rewrite_request.query:
+            raw_articles = await agent.get_content(
+                query=rewrite_request.query,
+                language=rewrite_request.language,
+                max_sources=rewrite_request.max_sources,
+                group_and_rewrite=False  # We'll do the rewriting in the next step
+            )
+            
+            if not raw_articles:
+                return {
+                    "message": "No articles found for the given query",
+                    "articles": []
+                }
+                
+            articles = raw_articles
+        else:
+            # TODO: Fetch articles by IDs from database
+            # For now, we'll return an error since DB isn't implemented yet
+            raise HTTPException(
+                status_code=501,
+                detail="Fetching articles by ID is not yet implemented"
+            )
+        
+        # Rewrite the articles
+        rewritten_articles = await agent.group_and_rewrite_articles(
+            articles=articles,
+            language=rewrite_request.language,
+            target_difficulty=rewrite_request.target_difficulty
+        )
+        
+        # TODO: Store the rewritten article in the database
+        
+        return {
+            "original_count": len(articles),
+            "language": rewrite_request.language,
+            "difficulty": rewrite_request.target_difficulty,
+            "rewritten_articles": rewritten_articles,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error rewriting articles: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Translation endpoint
+@app.post("/translate")
+async def translate_text(
+    text: str = Query(..., description="Text to translate"),
+    source_lang: str = Query(..., description="Source language code"),
+    target_lang: str = Query("en", description="Target language code"),
+    agent: ContentAgent = Depends(get_content_agent)
+):
+    """
+    Translate text from source language to target language using the LLM agent.
+    """
+    try:
+        # TODO: Implement translation using the agent or a dedicated translation service
+        # For now, return a mock response
+        return {
+            "original_text": text,
+            "translated_text": f"[Translated {source_lang} to {target_lang}]: {text}",
+            "source_language": source_lang,
+            "target_language": target_lang
+        }
+    except Exception as e:
+        logger.error(f"Error translating text: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Quiz generation endpoint
+@app.post("/generate-quiz")
+async def generate_quiz(
+    article_id: str = Query(..., description="ID of the article to generate quiz for"),
+    quiz_type: str = Query("multiple_choice", description="Type of quiz to generate (multiple_choice or short_answer)"),
+    num_questions: int = Query(5, description="Number of questions to generate"),
+    agent: ContentAgent = Depends(get_content_agent)
+):
+    """
+    Generate a quiz for an article using the LLM agent.
+    """
+    try:
+        # TODO: Retrieve the article from the database
+        # TODO: Generate a quiz using the agent
+        
+        # For now, return a mock response
+        return {
+            "article_id": article_id,
+            "quiz_type": quiz_type,
+            "num_questions": num_questions,
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "Sample question 1?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct_answer": "Option A",
+                    "evidence": "This comes from paragraph 2 of the article."
+                },
+                {
+                    "id": "q2",
+                    "question": "Sample question 2?",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct_answer": "Option C",
+                    "evidence": "This is explained in the third section."
+                }
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error generating quiz: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# User-facing read-only endpoint for cached articles
+@app.post("/cached-articles")
+async def get_cached_articles(
+    content_request: ContentRequest,
+    cache: ArticleCache = Depends(get_article_cache)
+):
+    """Get articles from cache only - for user interface"""
+    try:
+        query = content_request.query
+        language = content_request.language
+        
+        # Look in cache only
+        cached_articles = cache.get(query, language)
+        
+        if cached_articles:
+            logger.info(f"Returning cached articles for query: {query}, language: {language}")
+            
+            return {
+                "query": query,
+                "language": language,
+                "topic_type": content_request.topic_type,
+                "grouped": True,
+                "articles": cached_articles,
+                "source": "cache",
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            # No cached articles found
+            return {
+                "query": query,
+                "language": language,
+                "articles": [],
+                "source": "cache",
+                "message": "No cached articles found. Please check the admin panel to add content.",
+                "timestamp": datetime.now().isoformat()
+            }
+    except Exception as e:
+        error_msg = f"Error getting cached articles: {str(e)}"
+        logger.error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+# MongoDB article endpoints
+@app.get("/articles/{content_type}")
+async def get_articles(
+    content_type: str, 
+    limit: int = 20, 
+    language: Optional[str] = None,
+    bulk_fetch_id: Optional[str] = None,
+    source: Optional[str] = None,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """Get articles from MongoDB by content type (raw, group, rewritten) with optional filters"""
+    try:
+        # Validate content type
+        valid_types = ["raw", "group", "rewritten"]
+        if content_type not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Invalid content type. Must be one of: {', '.join(valid_types)}")
+        
+        # Build query with filters
+        query = {"content_type": content_type}
+        
+        # Add optional filters
+        if language:
+            query["language"] = language
+        if bulk_fetch_id:
+            query["bulk_fetch_id"] = bulk_fetch_id
+        if source:
+            query["source"] = source
+        
+        # Find articles with the specified content type and filters
+        # Sort by most recent first
+        articles = await db.articles_collection.find(query).sort("date_created", -1).limit(limit).to_list(limit)
+        
+        # Convert MongoDB documents to JSON-serializable format
+        result = []
+        for article in articles:
+            # Convert ObjectId to string for JSON serialization
+            if '_id' in article:
+                article['_id'] = str(article['_id'])
+                
+            # Convert dates to ISO format strings
+            for field in ['date_created', 'date_published']:
+                if field in article and article[field]:
+                    article[field] = article[field].isoformat()
+                    
+            result.append(article)
+            
+        return result
+    except Exception as e:
+        logger.error(f"Error retrieving articles from MongoDB: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving articles: {str(e)}")
+
+# Cache management endpoints
+@app.get("/cache/stats")
+async def get_cache_stats(cache: ArticleCache = Depends(get_article_cache)):
+    """Get cache statistics"""
+    return cache.get_stats()
+
+@app.get("/cache/queries")
+async def get_cached_queries(cache: ArticleCache = Depends(get_article_cache)):
+    """Get list of cached queries"""
+    return cache.get_all_queries()
+
+@app.post("/cache/clear")
+async def clear_cache(cache: ArticleCache = Depends(get_article_cache)):
+    """Clear the entire cache"""
+    cache.clear()
+    return {"message": "Cache cleared"}
+
+# Clear the MongoDB articles collection
+@app.post("/db/clear-articles")
+async def clear_articles(db: DatabaseService = Depends(get_database_service)):
+    """Clear all articles from MongoDB collection"""
+    result = await db.articles_collection.delete_many({})  # Empty filter matches all documents
+    count = result.deleted_count
+    return {"message": f"Cleared {count} articles from the database"}
+
+# In-memory storage for bulk fetch operations
+bulk_fetch_operations = {}
+
+class BulkFetchRequest(BaseModel):
+    """Request model for bulk fetch operation"""
+    language: str = "all"  # all, ko, or en, or any supported language code
+    fetch_only: bool = False  # If True, only perform fetching step without aggregation/rewriting steps
+    process_steps: List[str] = Field(default_factory=lambda: ["fetch", "aggregate", "rewrite"])  # Steps to execute
+
+# Bulk fetch endpoint - fetches all RSS content
+@app.post("/bulk-fetch")
+async def bulk_fetch(request: BulkFetchRequest, 
+              background_tasks: BackgroundTasks,
+              agent: ContentAgent = Depends(get_content_agent),
+              cache: ArticleCache = Depends(get_article_cache),
+              db: DatabaseService = Depends(get_database_service)):
+    """Start a bulk fetch operation to populate the cache"""
+    # Generate a unique ID for this operation
+    operation_id = f"bulk-fetch-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{len(bulk_fetch_operations) + 1}"
+    
+    # Initialize operation status
+    bulk_fetch_operations[operation_id] = {
+        "id": operation_id,
+        "status": "running",
+        "logs": [f"[{datetime.now().isoformat()}] Starting bulk fetch operation (ID: {operation_id})"],
+        "language": request.language,
+        "fetch_only": request.fetch_only,
+        "process_steps": request.process_steps,
+        "completed": False,
+        "started_at": datetime.now().isoformat(),
+        "articles_processed": 0,
+        "articles_cached": 0,
+        "articles_fetched": 0,
+        "articles_skipped": 0
+    }
+    
+    # Start the operation in the background
+    background_tasks.add_task(
+        process_bulk_fetch,
+        operation_id=operation_id,
+        language=request.language,
+        agent=agent,
+        cache=cache,
+        db=db
+    )
+    
+    # Return the operation ID
+    return {"id": operation_id, "message": "Bulk fetch operation started"}
+
+# Functions for each step of the bulk fetch process
+async def fetch_step(operation_id: str, language: str, agent: ContentAgent, cache: ArticleCache, db: DatabaseService, log_message):
+    """Step 1: Fetch articles from various sources and store them in MongoDB"""
+    operation = bulk_fetch_operations[operation_id]
+    
+    # Determine which languages to process
+    languages_to_process = ["ko", "en"] if language == "all" else [language]
+    log_message(f"Processing languages: {', '.join(languages_to_process)}")
+    
+    all_articles = {}
+    articles_added = 0
+    articles_skipped = 0
+    
+    # Fetch articles for each language
+    for lang in languages_to_process:
+        log_message(f"Fetching RSS feeds for language: {lang}")
+        
+        # Get the latest articles from RSS feeds
+        rss_articles = await fetch_rss_articles(lang, agent, log_message)
+        log_message(f"Found {len(rss_articles)} articles from RSS feeds for {lang}")
+        
+        # Store raw articles in MongoDB with deduplication
+        log_message(f"Processing {len(rss_articles)} raw articles for {lang}")
+        raw_articles_count = 0
+        deduplicated_count = 0
+        
+        for i, article in enumerate(rss_articles):
+            try:
+                # Initialize validation variables
+                valid_article = True
+                missing_attrs = []
+                
+                # Ensure the article has all required attributes before processing
+                if not hasattr(article, 'url') or not article.url:
+                    missing_attrs.append("URL")
+                    valid_article = False
+                    
+                if not hasattr(article, 'title') or not article.title:
+                    missing_attrs.append("title")
+                    valid_article = False
+                
+                if not valid_article:
+                    log_message(f"Skipping article with missing {', '.join(missing_attrs)}")
+                    operation["articles_skipped"] = operation.get("articles_skipped", 0) + 1
+                    continue
+                    
+                # Check if article has text content - needed for meaningful storage
+                has_text = False
+                if not hasattr(article, 'text') or not article.text:
+                    # Try to get the text from the HTML if available
+                    if hasattr(article, 'html') and article.html:
+                        # Extract text from HTML if possible
+                        try:
+                            from bs4 import BeautifulSoup
+                            soup = BeautifulSoup(article.html, 'html.parser')
+                            article.text = soup.get_text(separator='\n', strip=True)
+                            log_message(f"Extracted text from HTML for article: {article.title}")
+                        except Exception as html_err:
+                            log_message(f"Could not extract text from HTML: {str(html_err)}")
+                
+                # Check title
+                if not hasattr(article, 'title') or not article.title:
+                    missing_attrs.append("title")
+                    valid_article = False
+                
+                # Check URL
+                if not hasattr(article, 'url') or not article.url:
+                    missing_attrs.append("URL")
+                    valid_article = False
+                
+                # Check text - more comprehensive check
+                has_text = False
+                
+                # Check for text attribute
+                if hasattr(article, 'text') and article.text and len(article.text.strip()) > 100:
+                    has_text = True
+                
+                # Check for sections/content with substantial text
+                elif hasattr(article, 'content') and article.content and len(article.content) > 0:
+                    # Verify that at least one section has content
+                    for section in article.content:
+                        if hasattr(section, 'content') and section.content and len(section.content.strip()) > 50:
+                            has_text = True
+                            break
+                
+                if not has_text:
+                    missing_attrs.append("text content")
+                    valid_article = False
+                
+                if not valid_article:
+                    article_title = "Unknown"
+                    if hasattr(article, 'title') and article.title:
+                        article_title = article.title
+                    elif hasattr(article, 'url') and article.url:
+                        article_title = article.url
+                        
+                    log_message(f"Skipping article without {', '.join(missing_attrs)}: {article_title}")
+                    operation["articles_skipped"] = operation.get("articles_skipped", 0) + 1
+                    continue
+                
+                # Check if article already exists in MongoDB to avoid duplicates
+                existing = None
+                if hasattr(article, 'url') and article.url:
+                    existing = await db.articles_collection.find_one({"url": article.url})
+                    
+                if existing:
+                    log_message(f"Article already exists in database: {article.title}")
+                    operation["articles_skipped"] = operation.get("articles_skipped", 0) + 1
+                    deduplicated_count += 1
+                    
+                    # Check if this article has already been grouped (skip if it has)
+                    already_grouped = existing.get("grouped", False)
+                    if already_grouped:
+                        log_message(f"Article has already been grouped: {article.title}")
+                        continue
+                    
+                    # Although we're skipping storage, still add to all_articles for grouping
+                    # Convert MongoDB document to ArticleContent object
+                    if not operation.get("fetch_only", False) and "aggregate" in operation.get("process_steps", []):
+                        try:
+                            # Create ArticleContent from existing document
+                            from_db = ArticleContent(
+                                title=existing.get("title", "Untitled"),
+                                url=existing.get("url", ""),
+                                source=existing.get("source", ""),
+                                language=existing.get("language", lang),
+                                topics=existing.get("topics", []),
+                                content=existing.get("sections", [])
+                            )
+                            # Add text attribute for grouping
+                            from_db.__dict__['text'] = existing.get("text", "")
+                            
+                            # Store in memory for next steps
+                            if lang not in all_articles:
+                                all_articles[lang] = []
+                            all_articles[lang].append(from_db)
+                            log_message(f"Including existing article in grouping: {from_db.title}")
+                        except Exception as e:
+                            log_message(f"Error converting existing article: {str(e)}")
+                    
+                    continue
+                    
+                # Extract topics from article content
+                topics = extract_topics_from_article(article, log_message)
+                
+                # Create a dictionary with article data
+                article_dict = {
+                    "_id": f"{operation_id}-{lang}-{i}",
+                    "title": article.title,
+                    "url": article.url,
+                    "source": article.source if hasattr(article, 'source') else urlparse(article.url).netloc,
+                    "language": lang,
+                    "date_created": datetime.now(),
+                    "date_published": article.date if hasattr(article, 'date') else None,
+                    "author": article.author if hasattr(article, 'author') else "",
+                    "text": article.text if hasattr(article, 'text') else "",
+                    "summary": article.summary if hasattr(article, 'summary') else "",
+                    "topics": topics,
+                    "content_type": "raw",
+                    "bulk_fetch_id": operation_id
+                }
+                
+                # Add content sections if available
+                if hasattr(article, 'content') and article.content:
+                    article_dict["sections"] = []
+                    for section in article.content:
+                        if hasattr(section, 'content') and section.content:
+                            article_dict["sections"].append({
+                                "type": section.type if hasattr(section, 'type') else "text",
+                                "content": section.content,
+                                "order": section.order if hasattr(section, 'order') else 0
+                            })
+                
+                # Add grouping tracking fields
+                article_dict["grouped"] = False  # Initially not grouped
+                article_dict["group_id"] = None  # Will be set when grouped
+                
+                # Save to MongoDB
+                try:
+                    await db.articles_collection.insert_one(article_dict)
+                    log_message(f"Stored article in MongoDB: {article.title} - Text length: {len(article.text) if hasattr(article, 'text') and article.text else 'N/A'}, Sections: {len(article_dict.get('sections', []))}")
+                    raw_articles_count += 1
+                    operation["articles_fetched"] = operation.get("articles_fetched", 0) + 1
+                except Exception as db_err:
+                    log_message(f"Error saving article to MongoDB: {str(db_err)}")
+                    operation["articles_skipped"] = operation.get("articles_skipped", 0) + 1
+                
+                # Store in memory for next steps
+                if lang not in all_articles:
+                    all_articles[lang] = []
+                all_articles[lang].append(article)
+                
+            except Exception as e:
+                log_message(f"Error processing article {article.title if hasattr(article, 'title') else 'unknown'}: {str(e)}")
+        
+        log_message(f"Successfully processed {raw_articles_count} raw articles for {lang} (skipped {deduplicated_count} duplicates)")
+        operation["articles_cached"] += raw_articles_count
+    
+    # Update operation statistics
+    operation["articles_fetched"] = articles_added
+    operation["articles_skipped"] = articles_skipped
+    
+    # Return fetched articles for subsequent steps
+    return all_articles
+
+async def group_articles_by_similarity(articles, agent, log_fn):
+    """Group articles by content similarity and identify a main topic for each group"""
+    if not articles or len(articles) == 0:
+        log_fn("No articles to group")
+        return []
+    
+    # If there's only one article, put it in its own group
+    if len(articles) == 1:
+        article = articles[0]
+        # Extract topics from the article
+        topics = [topic for topic in article.topics if topic and len(topic) > 1]
+        main_topic = topics[0] if topics else "General News"
+        
+        return [{
+            "main_topic": main_topic,
+            "articles": articles
+        }]
+    
+    # For multiple articles, use the LLM to identify similarities and group them
+    log_fn(f"Using LLM to group {len(articles)} articles by similarity")
+    
+    try:
+        # Prepare article information for the LLM
+        article_info = []
+        for i, article in enumerate(articles):
+            # Create a summary of the article for the LLM to analyze
+            article_text = ""
+            if hasattr(article, 'text') and article.text:
+                # Use truncated text to avoid token limits
+                article_text = article.text[:1000] + "..." if len(article.text) > 1000 else article.text
+            
+            # Create a compact representation of the article
+            article_info.append({
+                "id": i,  # Internal ID for reference
+                "title": article.title,
+                "text": article_text,
+                "topics": article.topics if hasattr(article, 'topics') else [],
+                "language": article.language
+            })
+        
+        # Construct the prompt for the LLM
+        prompt = f"""
+        You will be presented with information about {len(articles)} news articles. 
+        Your task is to group these articles by topic similarity and identify the main topic for each group.
+        
+        Here are the articles:
+        {json.dumps(article_info, indent=2)}
+        
+        Please analyze these articles and group them by similarity of content and topic.
+        Articles in the same group should be about the same event, topic, or closely related topics.
+        
+        Return your analysis as a JSON array, where each element is an object with these properties:
+        - main_topic: A short string (2-5 words) describing the main topic of the group
+        - article_ids: An array of article IDs that belong to this group
+        
+        Make sure the main_topic is specific and informative.
+        Each article must be assigned to exactly one group.
+        The response must be valid JSON with no extra text.
+        """
+        
+        # Get response from LLM
+        response = await agent.llm.apredict(prompt)
+        log_fn(f"Received grouping analysis from LLM")
+        
+        # Parse the JSON response
+        groups_data = json.loads(response)
+        
+        # Create the final groups with full article objects
+        result_groups = []
+        for group in groups_data:
+            group_articles = [articles[article_id] for article_id in group["article_ids"] if article_id < len(articles)]
+            if group_articles:  # Only add groups that actually have articles
+                result_groups.append({
+                    "main_topic": group["main_topic"],
+                    "articles": group_articles
+                })
+        
+        log_fn(f"Created {len(result_groups)} article groups")
+        return result_groups
+    
+    except Exception as e:
+        log_fn(f"Error grouping articles: {str(e)}")
+        # Fallback: put all articles in one group
+        return [{
+            "main_topic": "Mixed News",
+            "articles": articles
+        }]
+
+async def aggregate_step(operation_id: str, fetched_articles, agent: ContentAgent, db: DatabaseService, log_message):
+    """Step 2: Group articles by similarity and topic"""
+    operation = bulk_fetch_operations[operation_id]
+    all_groups = {}
+    
+    for lang, articles in fetched_articles.items():
+        if not articles:
+            log_message(f"No articles to group for language: {lang}")
+            continue
+            
+        log_message(f"Grouping {len(articles)} articles by content similarity for {lang}")
+        
+        try:
+            # Group articles
+            article_groups = await group_articles_by_similarity(articles, agent, log_message)
+            log_message(f"Created {len(article_groups)} article groups for {lang}")
+            
+            # Store group information in MongoDB
+            for i, group in enumerate(article_groups):
+                group_id = f"{operation_id}-{lang}-group-{i}"
+                group_dict = {
+                    "_id": group_id,
+                    "bulk_fetch_id": operation_id,
+                    "language": lang,
+                    "main_topic": group["main_topic"],
+                    "article_urls": [article.url for article in group["articles"]],
+                    "article_count": len(group["articles"]),
+                    "date_created": datetime.now(),
+                    "content_type": "group"
+                }
+                
+                await db.articles_collection.insert_one(group_dict)
+                log_message(f"Stored article group in MongoDB: {group['main_topic']}")
+                
+                # Mark all articles in this group as grouped to avoid regrouping them
+                for article in group["articles"]:
+                    if hasattr(article, 'url') and article.url:
+                        # Update the article document to mark it as grouped
+                        await db.articles_collection.update_one(
+                            {"url": article.url},
+                            {"$set": {"grouped": True, "group_id": group_id}}
+                        )
+                        log_message(f"Marked article as grouped: {article.title}")
+            
+            all_groups[lang] = article_groups
+            operation["groups_created"] = operation.get("groups_created", 0) + len(article_groups)
+            
+        except Exception as e:
+            log_message(f"Error grouping articles for {lang}: {str(e)}")
+    
+    return all_groups
+
+async def rewrite_step(operation_id: str, article_groups, agent: ContentAgent, cache: ArticleCache, db: DatabaseService, log_message):
+    """Step 3: Rewrite articles at different difficulty levels"""
+    operation = bulk_fetch_operations[operation_id]
+    difficulties = ["beginner", "intermediate", "advanced"]
+    rewritten_count = 0
+    
+    # Check for ungrouped articles to ensure complete copyright compliance
+    ungrouped_articles = {}
+    try:
+        for lang in article_groups.keys():
+            # Find all articles that haven't been grouped but belong to this operation
+            cursor = db.articles_collection.find({
+                "bulk_fetch_id": operation_id,
+                "language": lang,
+                "content_type": "raw",
+                "grouped": False
+            })
+            
+            articles_list = await cursor.to_list(length=100)
+            if articles_list:
+                log_message(f"Found {len(articles_list)} ungrouped articles for language {lang} that need rewriting")
+                ungrouped_articles[lang] = []
+                
+                for article_doc in articles_list:
+                    try:
+                        # Convert DB document to ArticleContent object
+                        article = ArticleContent(
+                            title=article_doc.get("title", "Untitled"),
+                            url=article_doc.get("url", ""),
+                            source=article_doc.get("source", ""),
+                            language=article_doc.get("language", lang),
+                            topics=article_doc.get("topics", []),
+                            content=article_doc.get("sections", [])
+                        )
+                        # Add text attribute for processing
+                        article.__dict__['text'] = article_doc.get("text", "")
+                        
+                        ungrouped_articles[lang].append(article)
+                    except Exception as e:
+                        log_message(f"Error converting ungrouped article: {str(e)}")
+    except Exception as e:
+        log_message(f"Error retrieving ungrouped articles: {str(e)}")
+    
+    for lang, groups in article_groups.items():
+        if not groups:
+            log_message(f"No article groups to rewrite for language: {lang}")
+            continue
+            
+        log_message(f"Rewriting {len(groups)} article groups for {lang}")
+        
+        for i, group in enumerate(groups):
+            log_message(f"Processing group {i+1}/{len(groups)} for {lang}: {group['main_topic']}")
+            
+            for difficulty in difficulties:
+                log_message(f"Rewriting at {difficulty} level for group {i+1}")
+                
+                # Generate a query based on the main topic
+                query = f"{group['main_topic']} news" if lang == "en" else f"{group['main_topic']} 뉴스"
+                
+                try:
+                    # Ensure all articles have the text attribute required by the rewriting function
+                    for article in group['articles']:
+                        if not hasattr(article, 'text'):
+                            # Construct text from content sections
+                            article_text = ""
+                            for section in article.content:
+                                if hasattr(section, 'content'):
+                                    article_text += section.content + "\n\n"
+                            article.__dict__['text'] = article_text.strip()
+                    
+                    # Rewrite articles
+                    rewritten_article = await agent.group_and_rewrite_articles(
+                        articles=group['articles'],
+                        language=lang,
+                        target_difficulty=difficulty
+                    )
+                    
+                    # Extract topics for tagging
+                    topics = extract_topics_from_article(rewritten_article[0], log_message)
+                    
+                    # Store in MongoDB
+                    rewritten_id = f"{operation_id}-{lang}-{difficulty}-{i}"
+                    rewritten_dict = {
+                        "_id": rewritten_id,
+                        "title": rewritten_article[0].title,
+                        "language": lang,
+                        "difficulty": difficulty,
+                        "date_created": datetime.now(),
+                        "topics": topics,
+                        "query": query,
+                        "text": rewritten_article[0].text,
+                        "summary": rewritten_article[0].summary if hasattr(rewritten_article[0], 'summary') else "",
+                        "sections": [{
+                            "title": section.title,
+                            "content": section.content,
+                            "words": section.words
+                        } for section in rewritten_article[0].sections] if hasattr(rewritten_article[0], 'sections') else [],
+                        "content_type": "rewritten",
+                        "source_group": f"{operation_id}-{lang}-group-{i}",
+                        "bulk_fetch_id": operation_id
+                    }
+                    
+                    await db.articles_collection.insert_one(rewritten_dict)
+                    log_message(f"Stored rewritten article in MongoDB: {rewritten_article[0].title} ({difficulty})")
+                    rewritten_count += 1
+                    
+                except Exception as e:
+                    log_message(f"Error rewriting articles for group {i+1} at {difficulty} level: {str(e)}")
+    
+    # Process ungrouped articles individually to ensure copyright compliance
+    for lang, articles in ungrouped_articles.items():
+        if not articles:
+            continue
+            
+        log_message(f"Rewriting {len(articles)} ungrouped articles for {lang}")
+        
+        for i, article in enumerate(articles):
+            log_message(f"Processing ungrouped article {i+1}/{len(articles)} for {lang}: {article.title}")
+            
+            for difficulty in difficulties:
+                log_message(f"Rewriting ungrouped article at {difficulty} level")
+                
+                try:
+                    # Create a single article "group" for the LLM to rewrite
+                    single_article_group = {'articles': [article], 'main_topic': ', '.join(article.topics)}
+                    
+                    # Ensure article has text attribute required by the rewriting function
+                    if not hasattr(article, 'text'):
+                        # Construct text from content sections
+                        article_text = ""
+                        for section in article.content:
+                            if hasattr(section, 'content'):
+                                article_text += section.content + "\n\n"
+                        article.__dict__['text'] = article_text.strip()
+                    
+                    # Rewrite the individual article
+                    rewritten_article = await agent.group_and_rewrite_articles(
+                        articles=[article],
+                        language=lang,
+                        target_difficulty=difficulty
+                    )
+                    
+                    if not rewritten_article:
+                        log_message(f"Failed to rewrite ungrouped article: {article.title}")
+                        continue
+                    
+                    # Extract topics for tagging
+                    topics = extract_topics_from_article(rewritten_article[0], log_message)
+                    
+                    # Store in MongoDB
+                    rewritten_id = f"{operation_id}-{lang}-{difficulty}-ungrouped-{i}"
+                    rewritten_dict = {
+                        "_id": rewritten_id,
+                        "title": rewritten_article[0].title,
+                        "language": lang,
+                        "difficulty": difficulty,
+                        "date_created": datetime.now(),
+                        "topics": topics,
+                        "text": rewritten_article[0].text,
+                        "summary": rewritten_article[0].summary if hasattr(rewritten_article[0], 'summary') else "",
+                        "sections": [{
+                            "title": section.title if hasattr(section, 'title') else "",
+                            "content": section.content,
+                            "words": section.words if hasattr(section, 'words') else []
+                        } for section in rewritten_article[0].sections] if hasattr(rewritten_article[0], 'sections') else [],
+                        "content_type": "rewritten",
+                        "source_article": article.url,
+                        "bulk_fetch_id": operation_id
+                    }
+                    
+                    await db.articles_collection.insert_one(rewritten_dict)
+                    log_message(f"Stored rewritten ungrouped article in MongoDB: {rewritten_article[0].title} ({difficulty})")
+                    
+                    # Mark the original article as processed for copyright compliance
+                    await db.articles_collection.update_one(
+                        {"url": article.url},
+                        {"$set": {"rewritten": True}}
+                    )
+                    
+                    rewritten_count += 1
+                    
+                except Exception as e:
+                    log_message(f"Error rewriting ungrouped article at {difficulty} level: {str(e)}")
+    
+    operation["articles_rewritten"] = rewritten_count
+    return rewritten_count
+
+# Main background processing function that orchestrates the steps
+async def process_bulk_fetch(operation_id: str, language: str, agent: ContentAgent, cache: ArticleCache, db: DatabaseService):
+    """Process a bulk fetch operation in the background with separated steps"""
+    try:
+        operation = bulk_fetch_operations[operation_id]
+        log_message = lambda msg: operation["logs"].append(f"[{datetime.now().isoformat()}] {msg}")
+        
+        # Get the processing steps from the operation
+        steps_to_run = operation.get("process_steps", ["fetch"])
+        log_message(f"Executing bulk fetch steps: {', '.join(steps_to_run)}")
+        
+        # Step 1: Fetch - Always run this step
+        log_message("Starting FETCH step to collect articles")
+        fetched_articles = await fetch_step(operation_id, language, agent, cache, db, log_message)
+        log_message(f"FETCH step completed with {sum(len(articles) for articles in fetched_articles.values())} articles")
+        
+        # If only fetch step is requested or if fetch_only flag is set, stop here
+        if operation.get("fetch_only", False) or steps_to_run == ["fetch"]:
+            log_message("Only fetch step was requested. Skipping aggregation and rewriting.")
+            operation["status"] = "completed"
+            operation["completed"] = True
+            operation["completed_at"] = datetime.now().isoformat()
+            return
+        
+        # Step 2: Aggregate - Group articles by similarity (if requested)
+        article_groups = {}
+        if "aggregate" in steps_to_run:
+            log_message("Starting AGGREGATE step to group similar articles")
+            article_groups = await aggregate_step(operation_id, fetched_articles, agent, db, log_message)
+            log_message(f"AGGREGATE step completed with {sum(len(groups) for groups in article_groups.values())} groups")
+        
+        # Step 3: Rewrite - Create rewritten versions at different difficulty levels (if requested)
+        if "rewrite" in steps_to_run and article_groups:
+            log_message("Starting REWRITE step to create difficulty-adjusted versions")
+            rewritten_count = await rewrite_step(operation_id, article_groups, agent, cache, db, log_message)
+            log_message(f"REWRITE step completed with {rewritten_count} rewritten articles")
+        
+        # Mark operation as completed
+        log_message(f"Bulk fetch operation completed successfully")
+        operation["status"] = "completed"
+        operation["completed"] = True
+        operation["completed_at"] = datetime.now().isoformat()
+        
+    except Exception as e:
+        logger.error(f"Error in bulk fetch operation {operation_id}: {str(e)}")
+        if operation_id in bulk_fetch_operations:
+            bulk_fetch_operations[operation_id]["status"] = "failed"
+            bulk_fetch_operations[operation_id]["error"] = str(e)
+            bulk_fetch_operations[operation_id]["logs"].append(f"[{datetime.now().isoformat()}] Error: {str(e)}")
+
+# Helper functions for bulk fetch processing
+import concurrent.futures
+from functools import partial
+import asyncio
+import threading
+
+async def extract_article_from_entry(entry, language, config, log_fn):
+    """Extract a single article from an RSS feed entry"""
+    url = entry.get('link', '')
+    if not url:
+        return None
+        
+    feed_source = entry.get('_feed_source', '')
+    title = entry.get('title', 'Untitled')
+    
+    try:
+        # Extract basic info from the RSS entry
+        log_fn(f"Extracting article: {title}")
+        
+        # Download and parse the full article with better error handling
+        try:
+            # For some RSS feeds, we need to handle redirects and different URL formats
+            # Try to get the actual URL first (handle redirects)
+            session = requests.Session()
+            response = session.head(url, allow_redirects=True, timeout=10)
+            final_url = response.url
+            
+            # Initialize the article with the resolved URL
+            article = NewspaperArticle(final_url, config=config)
+            article.download()
+            article.parse()
+        except Exception as e:
+            log_fn(f"Error downloading article from {url}, trying alternate method: {str(e)}")
+            try:
+                # Fallback: try with original URL if redirect failed
+                article = NewspaperArticle(url, config=config)
+                article.download()
+                article.parse()
+            except Exception as e:
+                log_fn(f"Error extracting article from {url}: {str(e)}")
+                return None
+        
+        # Ensure article has text content using multiple extraction methods
+        try:
+            article.nlp()
+        except Exception as nlp_err:
+            log_fn(f"Warning: NLP extraction failed: {str(nlp_err)}")
+        
+        text_content = ""
+        
+        # Method 1: Use article.text from newspaper3k
+        if article.text:
+            text_content = article.text
+        
+        # Method 2: Try to extract more comprehensive text from article.html
+        if article.html and (not text_content or len(text_content) < 1000):
+            try:
+                soup = BeautifulSoup(article.html, 'html.parser')
+                
+                # Remove script, style, nav, and other non-content elements
+                for tag in soup.select('script, style, nav, header, footer, aside, .ad, .advertisement, .social, .comments'):
+                    tag.decompose()
+                
+                # Look for the main content containers
+                content_containers = soup.select('article, .article, .content, .article-content, .entry-content, .post-content, main')
+                
+                if content_containers:
+                    # Extract from content containers if found
+                    container_text = ''
+                    for container in content_containers:
+                        # Extract paragraphs
+                        paragraphs = container.find_all('p')
+                        if paragraphs:
+                            container_text += '\n\n'.join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
+                    
+                    if container_text and len(container_text) > len(text_content):
+                        text_content = container_text
+                else:
+                    # Fallback: extract all paragraph text if no content containers found
+                    paragraphs = soup.find_all('p')
+                    if paragraphs:
+                        extracted_text = '\n\n'.join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
+                        if len(extracted_text) > len(text_content):
+                            text_content = extracted_text
+            except Exception as bs_err:
+                log_fn(f"Error extracting text from HTML: {str(bs_err)}")
+        
+        # Method 3: Try to use the entry content directly from RSS
+        if (not text_content or len(text_content) < 200) and hasattr(entry, 'content'):
+            try:
+                content_text = '\n\n'.join([content.value for content in entry.content])
+                # If RSS content is longer, prefer it
+                if len(content_text) > len(text_content):
+                    text_content = content_text
+            except Exception:
+                pass
+        
+        # Method 4: Try entry summary or description as last resort
+        if not text_content:
+            if hasattr(entry, 'summary'):
+                text_content = entry.summary
+            elif hasattr(entry, 'description'):
+                text_content = entry.description
+                
+        # Update the article text with our best extraction
+        article.text = text_content
+        
+        # Extract content sections with improved paragraph detection
+        content_sections = []
+        if article.text:
+            # Normalize line breaks first
+            normalized_text = re.sub(r'\r\n|\r', '\n', article.text)
+            
+            # Preserve intended paragraph breaks
+            normalized_text = re.sub(r'\n{2,}', '§PARAGRAPH_BREAK§', normalized_text)
+            
+            # Clean up other whitespace but preserve paragraph structure
+            normalized_text = re.sub(r'\s+', ' ', normalized_text).strip()
+            
+            # Restore paragraph breaks
+            normalized_text = normalized_text.replace('§PARAGRAPH_BREAK§', '\n\n')
+            
+            # Split into paragraphs
+            paragraphs = normalized_text.split('\n\n')
+            
+            # If we still don't have multiple paragraphs, try more sophisticated splitting
+            if len(paragraphs) <= 2:  
+                # Try to split by periods followed by space and capital letter (including Korean)
+                better_paragraphs = []
+                for p in paragraphs:
+                    if len(p) > 300:  # Only split long paragraphs
+                        # Split by sentences, accounting for common abbreviations
+                        # This regex looks for periods followed by space and capital letter/Korean
+                        # but avoids splitting common abbreviations like U.S. or Dr.
+                        sentences = re.split(r'(?<![A-Z]\.)(?<=\.) (?=[A-Z가-힣])', p)
+                        
+                        # Group sentences into reasonable paragraphs (3-4 sentences)
+                        current_group = []
+                        for s in sentences:
+                            current_group.append(s)
+                            if len(current_group) >= 3:  # Group every 3 sentences
+                                better_paragraphs.append(' '.join(current_group))
+                                current_group = []
+                        
+                        # Add any remaining sentences
+                        if current_group:
+                            better_paragraphs.append(' '.join(current_group))
+                    else:
+                        better_paragraphs.append(p)
+                
+                # Use better paragraphs if we actually improved the structure
+                if len(better_paragraphs) > len(paragraphs):
+                    paragraphs = better_paragraphs
+            
+            # Create content sections from paragraphs with better filtering
+            filtered_paragraphs = []
+            
+            # Define patterns for filtering out non-article content
+            timestamp_pattern = re.compile(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?$')
+            login_pattern = re.compile(r'(로그인|회원가입|구독|subscribe|sign in)', re.IGNORECASE)
+            social_pattern = re.compile(r'(페이스북|트위터|공유하기|공유 하기|좋아요|follow us|share|like)', re.IGNORECASE)
+            short_prompt_pattern = re.compile(r'^.{1,20}[?.!:]$')  # Short calls to action
+            copyright_pattern = re.compile(r'(저작권|copyright|all rights reserved|©)', re.IGNORECASE)
+            
+            for p in paragraphs:
+                clean_p = p.strip()
+                
+                # Skip if empty or too short
+                if not clean_p or len(clean_p) < 6:
+                    continue
+                    
+                # Skip timestamps
+                if timestamp_pattern.match(clean_p):
+                    continue
+                    
+                # Skip login/social prompts
+                if login_pattern.search(clean_p) or social_pattern.search(clean_p) or copyright_pattern.search(clean_p):
+                    continue
+                    
+                # Skip very short lines that end with punctuation (likely UI elements)
+                if short_prompt_pattern.match(clean_p) and len(clean_p) < 15:
+                    continue
+                    
+                # Skip lines that are just dates or numbers
+                if re.match(r'^[\d\s\-/:,\.]+$', clean_p):
+                    continue
+                    
+                # Add to filtered paragraphs
+                filtered_paragraphs.append(clean_p)
+            
+            # Create content sections from filtered paragraphs
+            for i, clean_p in enumerate(filtered_paragraphs):
+                content_sections.append(
+                    ContentSection(
+                        type="text",
+                        content=clean_p,
+                        order=i
+                    )
+                )
+        
+        # Extract source and determine language
+        source = feed_source or urlparse(url).netloc
+        detected_lang = article.meta_lang or language  # Use meta language or default to requested language
+        
+        # Create ArticleContent object
+        article_content = ArticleContent(
+            title=title or article.title,
+            url=url,
+            source=source,
+            language=detected_lang,
+            date_published=article.publish_date,
+            author=article.authors[0] if article.authors else "",
+            text=article.text,
+            summary=article.summary,
+            topics=["", "rss", language],  # Basic topics - will be refined later
+            content_type="raw",
+            sections=content_sections
+        )
+        
+        log_fn(f"Successfully extracted article: {title} ({len(content_sections)} sections)")
+        return article_content
+    except Exception as e:
+        log_fn(f"Error extracting article from {url}: {str(e)}")
+        return None
+
+def extract_article(entry, language, config, log_fn):
+    """Extract article content from an RSS feed entry using newspaper3k and BeautifulSoup
+    Simple version that focuses on getting the main text without complex paragraph processing"""
+    url = entry.get('link', '')
+    if not url:
+        return None
+        
+    try:
+        feed_source = entry.get('_feed_source', '')
+        title = entry.get('title', 'Untitled')
+        log_fn(f"Extracting article: {title}")
+        
+        # Initialize variables
+        article = None
+        final_url = url
+        
+        # First attempt - try with URL redirection
+        try:
+            # Get the resolved URL (handling redirects)
+            session = requests.Session()
+            response = session.head(url, allow_redirects=True, timeout=10)
+            final_url = response.url
+            
+            # Initialize and download the article
+            article = NewspaperArticle(final_url, config=config)
+            article.download()
+            article.parse()
+        except Exception as e:
+            log_fn(f"Error downloading article from {url}, trying alternate method: {str(e)}")
+            # Try again with the original URL
+            try:
+                article = NewspaperArticle(url, config=config)
+                article.download()
+                article.parse()
+            except Exception as e:
+                log_fn(f"Failed to download article: {str(e)}")
+                return None
+        
+        # Try NLP extraction (optional but helpful)
+        try:
+            article.nlp()
+        except Exception as nlp_err:
+            log_fn(f"Warning: NLP extraction failed: {str(nlp_err)}")
+        
+        # Get the best available text content
+        text_content = ""
+        
+        # Start with newspaper's extracted text if available
+        if article.text:
+            text_content = article.text
+        
+        # If text is short or we need better extraction, try with HTML
+        if (len(text_content) < 1000 or 'subscribe' in text_content.lower() or 'sign up' in text_content.lower()) and article.html:
+            try:
+                soup = BeautifulSoup(article.html, 'html.parser')
+                
+                # First, aggressively remove known non-content elements
+                selectors_to_remove = [
+                    'script', 'style', 'iframe', 'header', 'footer', 'nav', 'aside', 'form', 
+                    '.ad', '.ads', '.advertisement', '.social', '.comments', '.newsletter', '.subscription',
+                    '.signup', '.related', '.promo', '.subscribe', '.sharing', '.email-signup', '.sidebar',
+                    '#sidebar', '#comments', '.comment', '.cookie', '[id*="cookie"]', '[class*="cookie"]',
+                    '[id*="subscribe"]', '[class*="subscribe"]', '[id*="newsletter"]', '[class*="newsletter"]',
+                    '[class*="signup"]', '[id*="signup"]'
+                ]
+                
+                for selector in selectors_to_remove:
+                    for tag in soup.select(selector):
+                        tag.decompose()
+                
+                # Look for the main content containers first
+                content_containers = soup.select('article, .article, .content, .article-content, .entry-content, .post-content, .story-content, main, [itemprop="articleBody"]')
+                
+                # Strategy 1: Extract from main content containers
+                if content_containers:
+                    # Get all paragraph text from content containers
+                    all_paragraphs = []
+                    for container in content_containers:
+                        paragraphs = container.find_all('p')
+                        for p in paragraphs:
+                            p_text = p.get_text(strip=True)
+                            if p_text and len(p_text) > 20 and not any(marker in p_text.lower() for marker in ['subscribe', 'newsletter', 'sign up', 'email', 'privacy', 'cookie']):
+                                all_paragraphs.append(p_text)
+                    
+                    if all_paragraphs:
+                        extracted_text = '\n\n'.join(all_paragraphs)
+                        if len(extracted_text) > 200:  # Only use if we got meaningful content
+                            text_content = extracted_text
+                
+                # Strategy 2: If that fails or gives too little content, try to find all paragraphs
+                if len(text_content) < 500:
+                    paragraphs = soup.find_all('p')
+                    if paragraphs:
+                        filtered_paragraphs = []
+                        for p in paragraphs:
+                            p_text = p.get_text(strip=True)
+                            # Filter out short paragraphs and those with subscription keywords
+                            if (p_text and len(p_text) > 30 and 
+                                not any(marker in p_text.lower() for marker in ['subscribe', 'newsletter', 'sign up', 'email', 'cookie', 'privacy policy'])):
+                                filtered_paragraphs.append(p_text)
+                        
+                        if filtered_paragraphs:
+                            extracted_text = '\n\n'.join(filtered_paragraphs)
+                            if len(extracted_text) > len(text_content):
+                                text_content = extracted_text
+            except Exception as bs_err:
+                log_fn(f"Error extracting text from HTML: {str(bs_err)}")
+        
+        # Try RSS content as a fallback
+        if len(text_content) < 200:
+            # Try entry content
+            if hasattr(entry, 'content'):
+                try:
+                    content_text = '\n\n'.join([content.value for content in entry.content])
+                    if len(content_text) > len(text_content):
+                        text_content = content_text
+                except Exception:
+                    pass
+            
+            # Try entry summary or description as last resort
+            if len(text_content) < 200:
+                if hasattr(entry, 'summary'):
+                    text_content = entry.summary
+                elif hasattr(entry, 'description'):
+                    # Clean HTML from description
+                    try:
+                        description = entry.description
+                        soup = BeautifulSoup(description, 'html.parser')
+                        text_content = soup.get_text(separator='\n', strip=True)
+                    except Exception:
+                        text_content = entry.description
+        
+        # Clean the text content
+        if text_content:
+            # Define patterns for filtering out unwanted content - much more comprehensive
+            unwanted_patterns = [
+                # Advertisements and sponsored content
+                r'(?i)(advertisement|sponsored content|sponsored post|paid content)',
+                # Subscription and signup prompts
+                r'(?i)(subscribe now|sign up for|newsletter|join our mailing list)',
+                r'(?i)(subscribe to our|sign up to our|register for|subscribe for updates)',
+                r'(?i)(get our newsletter|subscription|register now|create an account)',
+                # Social media
+                r'(?i)(follow us on|connect with us|share this article|share on)',
+                r'(?i)(facebook|twitter|instagram|linkedin|pinterest|reddit)',
+                # Legal text and metadata
+                r'(?i)(copyright|all rights reserved|terms of service|privacy policy)',
+                r'(?i)(\d+ min read|published on|updated on|posted on)',
+                # Navigation and UI elements
+                r'(?i)(read more:|click here|related articles|more stories)',
+                r'(?i)(loading|see also|next article|previous article)',
+                # Korean specific text
+                r'(로그인|회원가입|구독|페이스북|트위터|공유하기|저작권)',
+                # Email validation text
+                r'(?i)(your email will not be published|we respect your privacy)',
+                r'(?i)(email address|inbox|get daily updates|join)',
+                # Common newsletter text
+                r'(?i)(daily digest|breaking news|exclusive content|free newsletter)',
+                # Full email subscription blocks - these often contain descriptive sentences
+                r'(?i)(the daily .* email for exclusive .* coverage and analysis)',
+                r'(?i)(get our free .* email .* sent to your inbox)',
+                r'(?i)(i would like to be emailed about offers)',
+                r'(?i)(by clicking .* you agree to our .* terms|receive emails from)',
+            ]
+            
+            # Remove lines that look like pure navigation, UI elements, or cookie notices
+            lines = text_content.split('\n')
+            filtered_lines = []
+            
+            skip_patterns = [
+                r'(?i)(cookie|accept all|reject all|privacy settings)',
+                r'(?i)(skip to content|back to top|continue reading)',
+                r'(?i)(loading|please wait|show comments|hide comments)',
+                r'(?i)(click here|sign in|log in|register|subscribe)',
+                r'(?i)(email.*@|@.*email|inbox|newsletter)', 
+                r'(?i)(sent to your|receive our|exclusive content)',
+                r'(?i)(agree to (our|the) terms)'  
+            ]
+            
+            for line in lines:
+                line = line.strip()
+                # Skip empty lines or short UI/navigation elements
+                if not line or len(line) < 15:
+                    continue
+                    
+                # Skip lines that match our skip patterns
+                if any(re.search(pattern, line) for pattern in skip_patterns):
+                    continue
+                    
+                filtered_lines.append(line)
+            
+            # Join the filtered lines back
+            text_content = '\n'.join(filtered_lines)
+            
+            # Now apply the patterns to remove inline unwanted content
+            for pattern in unwanted_patterns:
+                text_content = re.sub(pattern, '', text_content)
+            
+            # Clean up whitespace and repeated spacing
+            text_content = re.sub(r'\n{3,}', '\n\n', text_content)
+            text_content = re.sub(r'\s{2,}', ' ', text_content)
+            
+            # Remove lines that are too short after all processing (likely UI elements)
+            lines = text_content.split('\n')
+            text_content = '\n'.join([line for line in lines if len(line.strip()) > 20])
+            
+            # Final cleanup
+            text_content = text_content.strip()
+        
+        # Skip if we didn't get any usable content - require substantial text for language learning
+        if not text_content or len(text_content) < 500:  # Increased from 100 to 500 characters
+            log_fn(f"Insufficient content extracted for article: {title} (only {len(text_content) if text_content else 0} chars)")
+            return None
+            
+        # Check if the extracted content seems incomplete (no punctuation at the end)
+        if text_content and not re.search(r'[.!?]\s*$', text_content):
+            log_fn(f"Article appears to be truncated: {title}")
+            
+        # Check for email signup/subscription content
+        if re.search(r'(?i)(email|newsletter|inbox|subscribe|sign up|free.*sent to|would like to be emailed)', text_content):
+            log_fn(f"Warning: Article may contain subscription content: {title}")
+            
+        # Create a single content section with the entire text
+        content_sections = [
+            ContentSection(
+                type="text",
+                content=text_content,
+                order=0
+            )
+        ]
+        
+        # Extract source and determine language
+        source = feed_source or urlparse(url).netloc
+        detected_lang = article.meta_lang or language
+        
+        # Set date published if available
+        date_published = None
+        if hasattr(article, 'publish_date') and article.publish_date:
+            date_published = article.publish_date
+        elif hasattr(entry, 'published_parsed') and entry.published_parsed:
+            date_published = datetime(*entry.published_parsed[:6])
+        
+        # Create ArticleContent object with the simplified approach
+        article_content = ArticleContent(
+            title=title or article.title or "Untitled Article",
+            url=url,
+            source=source,
+            language=detected_lang,
+            date_published=date_published,
+            content=content_sections,  # This field name must match the model definition
+            topics=["", "rss", language, source.split('.')[0]]  # Basic topics with source
+        )
+        
+        # Add attributes expected by the processing code after the object is created
+        # This doesn't interfere with the Pydantic validation
+        article_content.__dict__['text'] = text_content
+        article_content.__dict__['summary'] = article.summary if hasattr(article, 'summary') and article.summary else ""
+        
+        log_fn(f"Successfully extracted article: {title} ({len(text_content)} chars)")
+        return article_content
+    
+    except Exception as e:
+        log_fn(f"Error extracting article from {url}: {str(e)}")
+        return None
+
+async def fetch_rss_articles(language: str, agent: ContentAgent, log_fn) -> List[ArticleContent]:
+    """Fetch articles directly from RSS feeds for a specific language using parallel processing"""
+    # Track performance
+    start_time = time.time()
+    
+    # Maps language codes to RSS feeds of major news sources
+    rss_feeds = {
+        "ko": [
+            # Korean technology news sources
+            "https://www.etnews.com/rss/rss.xml",                           # Electronic Times
+            # Removing Bloter.net due to consistent 404 errors
+            "https://www.itworld.co.kr/rss/feed/idx/5",                     # IT World Korea
+            "https://rss.zdnet.co.kr/section/news.xml",                      # ZDNet Korea
+            "https://feeds.feedburner.com/venturesquare",                   # Venture Square
+            "https://www.aitimes.com/rss/allArticle.xml",                   # AI Times Korea
+            
+            # General Korean news sources
+            "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml",  # Chosun Ilbo
+            "https://www.hani.co.kr/rss/",                                   # Hankyoreh
+            "https://www.khan.co.kr/rss/rssdata/total_news.xml",            # Kyunghyang Shinmun
+            "https://www.ytn.co.kr/feed/index.php",                          # YTN
+            "https://rss.donga.com/total.xml",                               # Dong-A Ilbo
+            "https://www.mk.co.kr/rss/40300001/",                           # Maeil Business
+        ],
+        "en": [
+            # English news sources - easier to extract
+            "https://feeds.bbci.co.uk/news/world/rss.xml",                   # BBC
+            "https://www.theguardian.com/world/rss",                         # The Guardian
+            "http://rss.cnn.com/rss/cnn_world.rss",                          # CNN
+            "https://feeds.npr.org/1001/rss.xml",                            # NPR
+            "https://moxie.foxnews.com/google-publisher/world.xml",          # Fox News
+            "https://www.independent.co.uk/news/world/rss",                  # Independent
+            "https://www.aljazeera.com/xml/rss/all.xml",                     # Al Jazeera
+        ],
+    }
+    
+    # Get RSS feeds for the requested language (or default to English)
+    language_feeds = rss_feeds.get(language, rss_feeds.get("en"))
+    all_articles = []
+    
+    log_fn(f"Directly fetching articles from {len(language_feeds)} RSS feeds for language: {language}")
+    
+    # Configure newspaper with browser user-agent to avoid blocks
+    config = NewspaperConfig()
+    config.browser_user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.4 Safari/605.1.15'
+    config.request_timeout = 15  # Increased timeout for better content loading
+    config.fetch_images = False  # Skip image downloading to focus on text
+    config.memoize_articles = False  # Don't cache during fetch to ensure fresh content
+    
+    # Get all feed entries first
+    all_entries = []
+    
+    # Process all RSS feeds for the language
+    for feed_url in language_feeds:
+        try:
+            log_fn(f"Processing feed: {feed_url}")
+            feed = feedparser.parse(feed_url)
+            feed_source = urlparse(feed_url).netloc
+            
+            # Add feed source to each entry for later processing
+            for entry in feed.entries[:10]:
+                entry['_feed_source'] = feed_source
+                all_entries.append(entry)
+        except Exception as e:
+            log_fn(f"Error processing feed {feed_url}: {str(e)}")
+    
+    # Extract articles from entries in parallel using ThreadPoolExecutor
+    log_fn(f"Extracting content from {len(all_entries)} articles using multithreading")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # Map each entry to a future
+        article_futures = {executor.submit(extract_article, entry, language, config, log_fn): entry for entry in all_entries}
+        
+        # Process completed futures as they finish
+        for future in concurrent.futures.as_completed(article_futures):
+            entry = article_futures[future]
+            try:
+                # Get the result of the extraction
+                article = future.result()
+                if article and article.content:  # Only include articles with actual content
+                    all_articles.append(article)
+            except Exception as e:
+                log_fn(f"Error processing article from {entry.get('link', '')}: {str(e)}")
+    
+    log_fn(f"Successfully extracted {len(all_articles)} articles in {time.time() - start_time:.2f} seconds")
+    return all_articles
+
+
+def extract_topics_from_article(article: Union[ArticleContent, GroupedArticleContent], log_fn) -> List[str]:
+    """Extract topics from an article for tagging"""
+    # Start with the article's own topics
+    topics = article.topics.copy() if hasattr(article, "topics") and article.topics else []
+    
+    # Add difficulty level if it's a GroupedArticleContent
+    if hasattr(article, "difficulty_level") and article.difficulty_level:
+        topics.append(article.difficulty_level)
+    
+    # Add language
+    if hasattr(article, "language") and article.language:
+        topics.append(article.language)
+    
+    log_fn(f"Extracted topics: {', '.join(topics)}")
+    return topics
+    
+    # Return the operation ID
+    return {"id": operation_id, "message": "Bulk fetch operation started"}
+
+@app.get("/bulk-fetch-status/{operation_id}")
+async def get_bulk_fetch_status(operation_id: str):
+    """Get the status of a bulk fetch operation"""
+    if operation_id not in bulk_fetch_operations:
+        raise HTTPException(status_code=404, detail=f"Bulk fetch operation {operation_id} not found")
+    
+    return bulk_fetch_operations[operation_id]
+
+# Get information about cached content
+@app.get("/bulk-fetch-info")
+async def bulk_fetch_info(cache: ArticleCache = Depends(get_article_cache)):
+    """Get information about what's in the cache"""
+    # Get all cached queries
+    cached_queries = cache.get_all_queries()
+    
+    return {
+        "cached_queries": cached_queries,
+        "cache_stats": cache.get_stats(),
+        "timestamp": datetime.now().isoformat()
+    }
+
+# Include other routers here
+# app.include_router(some_router)
+
+if __name__ == "__main__":
+    # Start the FastAPI server
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)

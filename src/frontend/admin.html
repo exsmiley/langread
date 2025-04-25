@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangRead Admin - Content Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 2rem;
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+        .admin-panel {
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.875rem;
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+        .tag-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .tag-pill {
+            padding: 0.25rem 0.5rem;
+            border-radius: 50rem;
+            font-size: 0.75rem;
+            background-color: #e9ecef;
+            color: #495057;
+            cursor: pointer;
+        }
+        .tag-pill:hover {
+            background-color: #dee2e6;
+        }
+        .tag-pill.korean {
+            background-color: #d1e7ff;
+            color: #0d6efd;
+        }
+        .tag-pill.english {
+            background-color: #d1ffdd;
+            color: #198754;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        .loader {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        .stats-card {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>LangRead Admin</h1>
+                <p class="text-muted">Content Management & Article Fetching</p>
+            </div>
+            <div>
+                <a href="index.html" class="btn btn-outline-secondary">Switch to User View</a>
+            </div>
+        </header>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="admin-panel">
+                    <div class="header-actions">
+                        <h2>Bulk Content Fetching</h2>
+                        <button id="bulkFetchBtn" class="btn btn-primary">Start Bulk Fetch</button>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <p class="text-muted">
+                            This process will automatically:
+                            <ol>
+                                <li>Fetch all available articles from RSS feeds</li>
+                                <li>Group related articles by content</li>
+                                <li>Rewrite articles at beginner, intermediate, and advanced levels</li>
+                                <li>Generate tags automatically based on content</li>
+                                <li>Save everything to the cache</li>
+                            </ol>
+                        </p>
+                        <div class="alert alert-info">
+                            <strong>Note:</strong> This process may take several minutes to complete.
+                        </div>
+                    </div>
+                    
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="radio" name="language" id="languageAll" value="all" checked>
+                        <label class="form-check-label" for="languageAll">All Languages</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="radio" name="language" id="languageKo" value="ko">
+                        <label class="form-check-label" for="languageKo">Korean Only</label>
+                    </div>
+                    <div class="form-check form-check-inline mb-3">
+                        <input class="form-check-input" type="radio" name="language" id="languageEn" value="en">
+                        <label class="form-check-label" for="languageEn">English Only</label>
+                    </div>
+                </div>
+                
+                <div id="logs" class="admin-panel">
+                    <h4>Processing Logs</h4>
+                    <div class="logs-container">
+                        <pre id="logsContent">Ready to start bulk fetching...</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="admin-panel">
+                    <h3>Cache Statistics</h3>
+                    <div id="cacheStats" class="stats-card">
+                        <p><strong>Cached Queries:</strong> <span id="cachedQueriesCount">0</span></p>
+                        <p><strong>Cached Articles:</strong> <span id="cachedArticlesCount">0</span></p>
+                        <p><strong>Cache Size:</strong> <span id="cacheSize">0 KB</span></p>
+                    </div>
+                    
+                    <h3>Actions</h3>
+                    <div class="d-grid gap-2">
+                        <button id="refreshCacheBtn" class="btn btn-outline-secondary">Refresh Stats</button>
+                        <button id="viewCacheBtn" class="btn btn-outline-primary">View Cached Content</button>
+                        <button id="clearCacheBtn" class="btn btn-outline-danger">Clear Cache</button>
+                    </div>
+                </div>
+                
+                <div class="admin-panel">
+                    <h3>Tag Management</h3>
+                    <div class="mb-3">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <input type="text" class="form-control" id="newTagKo" placeholder="Korean tag">
+                            </div>
+                            <div class="col-6">
+                                <input type="text" class="form-control" id="newTagEn" placeholder="English tag">
+                            </div>
+                        </div>
+                        <button id="addTagBtn" class="btn btn-outline-secondary mt-2 w-100">Add Tag Pair</button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Current Tags:</h6>
+                        <div id="tagsList" class="tag-pills"></div>
+                    </div>
+                </div>
+                
+                <div class="admin-panel">
+                    <h3>Database Articles</h3>
+                    <div class="mb-3">
+                        <h6>View articles by type:</h6>
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-primary view-articles-btn" data-type="raw">Raw</button>
+                            <button type="button" class="btn btn-outline-primary view-articles-btn" data-type="group">Groups</button>
+                            <button type="button" class="btn btn-outline-primary view-articles-btn" data-type="rewritten">Rewritten</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Cache Content Modal -->
+        <div class="modal fade" id="cacheContentModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Cached Content</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Query</th>
+                                        <th>Language</th>
+                                        <th>Articles</th>
+                                        <th>Cached On</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cachedQueriesList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Database Articles Modal -->
+        <div class="modal fade" id="databaseArticlesModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Database Articles</h5>
+                        <span class="ms-3 badge rounded-pill bg-primary" id="articlesTypeLabel">Raw</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="articlesLoading" class="text-center my-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading articles...</p>
+                        </div>
+                        <div id="articlesError" class="alert alert-danger" style="display: none;"></div>
+                        <div id="articlesEmpty" class="alert alert-info" style="display: none;">
+                            No articles found of this type.
+                        </div>
+                        <div id="articlesContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Define the API base URL
+        const API_BASE_URL = 'http://localhost:8001';
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize elements
+            const bulkFetchBtn = document.getElementById('bulkFetchBtn');
+            const addTagBtn = document.getElementById('addTagBtn');
+            const tagsList = document.getElementById('tagsList');
+            const logsContent = document.getElementById('logsContent');
+            const loader = document.getElementById('loader');
+            
+            // Cache action buttons
+            const refreshCacheBtn = document.getElementById('refreshCacheBtn');
+            const viewCacheBtn = document.getElementById('viewCacheBtn');
+            const clearCacheBtn = document.getElementById('clearCacheBtn');
+            
+            // Cache modal elements
+            const cacheContentModal = new bootstrap.Modal(document.getElementById('cacheContentModal'));
+            const cachedQueriesList = document.getElementById('cachedQueriesList');
+            
+            // Refresh cache stats on load
+            updateCacheStats();
+            
+            // Add tag button
+            addTagBtn.addEventListener('click', function() {
+                const newTagKo = document.getElementById('newTagKo').value.trim();
+                const newTagEn = document.getElementById('newTagEn').value.trim();
+                
+                if (newTagKo && newTagEn) {
+                    addTagElement(newTagKo, newTagEn);
+                    document.getElementById('newTagKo').value = '';
+                    document.getElementById('newTagEn').value = '';
+                }
+            });
+            
+            // Bulk fetch button
+            bulkFetchBtn.addEventListener('click', async function() {
+                // Get selected language option
+                const language = document.querySelector('input[name="language"]:checked').value;
+                
+                // Update UI
+                bulkFetchBtn.disabled = true;
+                bulkFetchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Starting...';
+                
+                // Clear logs
+                logsContent.innerText = 'Starting bulk fetch operation...\n';
+                
+                try {
+                    // Call the bulk fetch API endpoint
+                    const response = await fetch(`${API_BASE_URL}/bulk-fetch`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    logsContent.innerText += `Bulk fetch operation started with ID: ${data.id}\n`;
+                    logsContent.innerText += `Polling for status updates...\n`;
+                    
+                    // Start polling for status updates
+                    await pollBulkFetchStatus(data.id, logsContent);
+                    
+                    // Complete
+                    logsContent.innerText += `\n✅ Bulk fetch completed successfully.\n`;
+                    logsContent.scrollTop = logsContent.scrollHeight;
+                } catch (error) {
+                    logsContent.innerText += `❌ Error during bulk fetch: ${error.message}\n`;
+                    logsContent.scrollTop = logsContent.scrollHeight;
+                } finally {
+                    // Reset button
+                    bulkFetchBtn.disabled = false;
+                    bulkFetchBtn.innerHTML = 'Start Bulk Fetch';
+                    
+                    // Update cache stats
+                    updateCacheStats();
+                }
+            });
+        
+        // Poll for bulk fetch status updates
+        async function pollBulkFetchStatus(bulkFetchId, logsElement) {
+            let completed = false;
+            let retries = 0;
+            const maxRetries = 360; // 6 minutes maximum polling time (1 second intervals)
+            let lastLogCount = 0;
+            
+            while (!completed && retries < maxRetries) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-fetch-status/${bulkFetchId}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const status = await response.json();
+                    
+                    // Update logs with any new messages
+                    if (status.logs && status.logs.length > 0) {
+                        // Only append new logs to avoid flickering
+                        if (status.logs.length > lastLogCount) {
+                            logsElement.innerText = status.logs.join('\n');
+                            logsElement.scrollTop = logsElement.scrollHeight;
+                            lastLogCount = status.logs.length;
+                        }
+                    }
+                    
+                    // Update stats
+                    const statsElement = document.createElement('div');
+                    statsElement.innerHTML = `
+                    <div class="progress-info mt-3">
+                        <div><strong>Status:</strong> ${status.status}</div>
+                        <div><strong>Language:</strong> ${status.language}</div>
+                        <div><strong>Articles processed:</strong> ${status.articles_processed}</div>
+                        <div><strong>Articles cached:</strong> ${status.articles_cached}</div>
+                    </div>`;
+                    
+                    // Add stats after the logs if they don't exist yet
+                    const existingStats = document.querySelector('.progress-info');
+                    if (existingStats) {
+                        existingStats.outerHTML = statsElement.innerHTML;
+                    } else {
+                        logsElement.insertAdjacentHTML('afterend', statsElement.innerHTML);
+                    }
+                    
+                    // Check if the operation is completed
+                    if (status.completed || status.status === 'completed') {
+                        completed = true;
+                        logsElement.innerText += '\n✅ Bulk fetch process completed!\n';
+                        // Add a timestamp
+                        if (status.completed_at) {
+                            logsElement.innerText += `Completed at: ${new Date(status.completed_at).toLocaleString()}\n`;
+                        }
+                    } else if (status.status === 'failed') {
+                        completed = true;
+                        logsElement.innerText += `\n❌ Bulk fetch process failed: ${status.error || 'Unknown error'}\n`;
+                    } else {
+                        // Wait a bit before polling again
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        retries++;
+                    }
+                } catch (error) {
+                    logsElement.innerText += `\nError polling status: ${error.message}\n`;
+                    logsElement.scrollTop = logsElement.scrollHeight;
+                    // Don't break immediately, retry a few times
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    retries += 2;
+                }
+            }
+            
+            if (retries >= maxRetries) {
+                logsElement.innerText += '\n⚠️ Polling timed out. The operation may still be running in the background.\n';
+                logsElement.innerText += 'Check the cache later to see results.\n';
+            }
+            
+            return completed;
+        }
+            
+        // Cache action buttons
+        refreshCacheBtn.addEventListener('click', updateCacheStats);
+        
+        // MongoDB article view buttons
+        document.querySelectorAll('.view-articles-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const contentType = this.getAttribute('data-type');
+                viewDatabaseArticles(contentType);
+            });
+        });
+        
+        viewCacheBtn.addEventListener('click', async function() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/bulk-fetch-info`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Display cached queries
+                cachedQueriesList.innerHTML = '';
+                data.cached_queries.forEach(query => {
+                    const row = document.createElement('tr');
+                    const date = new Date(query.timestamp);
+                    row.innerHTML = `
+                        <td>${query.query}</td>
+                        <td>${query.language}</td>
+                        <td>${query.article_count}</td>
+                        <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary view-content-btn" 
+                                    data-query="${query.query}" 
+                                    data-language="${query.language}">
+                                    View
+                                </button>
+                            </td>
+                        `;
+                        cachedQueriesList.appendChild(row);
+                    });
+                    
+                    // Add event listeners to view buttons
+                    document.querySelectorAll('.view-content-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const query = this.dataset.query;
+                            const language = this.dataset.language;
+                            
+                            // Here you would implement viewing the specific content
+                            alert(`You would now view content for "${query}" in ${language}`);
+                        });
+                    });
+                    
+                    // Show modal
+                    cacheContentModal.show();
+                    
+                } catch (error) {
+                    console.error('Error getting cache info:', error);
+                    alert('Error getting cache information: ' + error.message);
+                }
+            });
+            
+            clearCacheBtn.addEventListener('click', async function() {
+                if (confirm('Are you sure you want to clear the cache? This will delete all cached articles.')) {
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/cache/clear`, {
+                            method: 'POST'
+                        });
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        
+                        alert('Cache cleared successfully!');
+                        updateCacheStats();
+                    } catch (error) {
+                        console.error('Error clearing cache:', error);
+                        alert('Error clearing cache: ' + error.message);
+                    }
+                }
+            });
+            
+            // Function to view database articles
+            async function viewDatabaseArticles(contentType) {
+                const modal = new bootstrap.Modal(document.getElementById('databaseArticlesModal'));
+                modal.show();
+                
+                // Update the content type label
+                document.getElementById('articlesTypeLabel').textContent = contentType.charAt(0).toUpperCase() + contentType.slice(1);
+                
+                // Show loading, hide error and empty states
+                document.getElementById('articlesLoading').style.display = 'block';
+                document.getElementById('articlesError').style.display = 'none';
+                document.getElementById('articlesEmpty').style.display = 'none';
+                document.getElementById('articlesContainer').innerHTML = '';
+                
+                try {
+                    // Fetch articles from the API
+                    const response = await fetch(`${API_BASE_URL}/articles/${contentType}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const articles = await response.json();
+                    
+                    // Hide loading indicator
+                    document.getElementById('articlesLoading').style.display = 'none';
+                    
+                    // Check if we have articles
+                    if (articles.length === 0) {
+                        document.getElementById('articlesEmpty').style.display = 'block';
+                        return;
+                    }
+                    
+                    // Render the articles
+                    const container = document.getElementById('articlesContainer');
+                    
+                    articles.forEach((article, index) => {
+                        const articleCard = document.createElement('div');
+                        articleCard.className = 'card mb-3';
+                        
+                        let articleContent = `
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">${article.title || 'Untitled'}</h5>
+                                <span class="badge bg-secondary">${article.language || 'unknown'}</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2"><strong>Source:</strong> ${article.source || 'Unknown'}</div>
+                                <div class="mb-2"><strong>ID:</strong> ${article._id}</div>
+                                <div class="mb-2"><strong>Created:</strong> ${new Date(article.date_created).toLocaleString()}</div>
+                        `;
+                        
+                        if (article.topics && article.topics.length > 0) {
+                            articleContent += `<div class="mb-2"><strong>Topics:</strong> `;
+                            article.topics.forEach(topic => {
+                                articleContent += `<span class="badge bg-info me-1">${topic}</span>`;
+                            });
+                            articleContent += `</div>`;
+                        }
+                        
+                        if (contentType === 'raw' || contentType === 'rewritten') {
+                            // Add text preview for raw and rewritten articles
+                            let previewText = 'No text content';
+                            
+                            // Check for text in sections array if text field is empty
+                            if (article.text && article.text.length > 0) {
+                                previewText = article.text.length > 300 ? article.text.substring(0, 300) + '...' : article.text;
+                            } else if (article.sections && article.sections.length > 0) {
+                                // Combine section content
+                                const combinedText = article.sections
+                                    .sort((a, b) => a.order - b.order) // Ensure correct order
+                                    .map(section => section.content)
+                                    .join('\n\n');
+                                    
+                                previewText = combinedText.length > 300 ? combinedText.substring(0, 300) + '...' : combinedText;
+                            }
+                            
+                            articleContent += `
+                                <div class="mb-2">
+                                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#articleContent${index}">
+                                        Toggle Content Preview
+                                    </button>
+                                </div>
+                                <div class="collapse" id="articleContent${index}">
+                                    <div class="card card-body bg-light">
+                                        <pre style="white-space: pre-wrap;">${previewText}</pre>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (contentType === 'group') {
+                            // Add article list for groups
+                            articleContent += `
+                                <div class="mb-2"><strong>Main Topic:</strong> ${article.main_topic || 'Unknown'}</div>
+                                <div class="mb-2"><strong>Articles:</strong> ${article.article_count || 0}</div>
+                            `;
+                            
+                            if (article.article_urls && article.article_urls.length > 0) {
+                                articleContent += `<div class="mb-2"><strong>URLs:</strong></div><ul>`;
+                                article.article_urls.forEach(url => {
+                                    articleContent += `<li class="small text-truncate"><a href="${url}" target="_blank">${url}</a></li>`;
+                                });
+                                articleContent += `</ul>`;
+                            }
+                        }
+                        
+                        if (contentType === 'rewritten' && article.difficulty) {
+                            articleContent += `<div class="mb-2"><strong>Difficulty:</strong> ${article.difficulty}</div>`;
+                        }
+                        
+                        articleContent += `</div>`; // Close card-body
+                        
+                        articleCard.innerHTML = articleContent;
+                        container.appendChild(articleCard);
+                    });
+                    
+                } catch (error) {
+                    console.error('Error fetching articles:', error);
+                    document.getElementById('articlesLoading').style.display = 'none';
+                    const errorElement = document.getElementById('articlesError');
+                    errorElement.textContent = `Error loading articles: ${error.message}`;
+                    errorElement.style.display = 'block';
+                }
+            }
+            
+            // Helper functions
+            function addTopicElement(koText, enText) {
+                const topicElement = document.createElement('div');
+                topicElement.className = 'tag-pill topic-item';
+                topicElement.dataset.ko = koText;
+                topicElement.dataset.en = enText;
+                topicElement.innerHTML = `${koText} / ${enText} <span class="ms-1 text-danger">×</span>`;
+                
+                // Add remove functionality
+                topicElement.querySelector('span').addEventListener('click', function() {
+                    topicElement.remove();
+                });
+                
+                topicsList.appendChild(topicElement);
+            }
+            
+            function addTagElement(koText, enText) {
+                const koTag = document.createElement('div');
+                koTag.className = 'tag-pill korean';
+                koTag.textContent = koText;
+                
+                const enTag = document.createElement('div');
+                enTag.className = 'tag-pill english';
+                enTag.textContent = enText;
+                
+                tagsList.appendChild(koTag);
+                tagsList.appendChild(enTag);
+            }
+            
+            async function updateCacheStats() {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/cache/stats`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const stats = await response.json();
+                    
+                    // Update stats display
+                    document.getElementById('cachedQueriesCount').textContent = stats.total_queries || 0;
+                    document.getElementById('cachedArticlesCount').textContent = stats.total_articles || 0;
+                    document.getElementById('cacheSize').textContent = 
+                        stats.cache_size_bytes ? `${(stats.cache_size_bytes / 1024).toFixed(2)} KB` : '0 KB';
+                    
+                } catch (error) {
+                    console.error('Error getting cache stats:', error);
+                }
+            }
+            
+            // Simulated fetch operation for demo purposes
+            async function simulateFetch(query, language, difficulty) {
+                return new Promise((resolve) => {
+                    // Simulate API latency (1-3 seconds)
+                    const delay = 1000 + Math.random() * 2000;
+                    setTimeout(resolve, delay);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

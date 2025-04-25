@@ -1,0 +1,72 @@
+/* Global styles for LangRead app */
+
+/* Apply a CSS reset and base styles */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom selection style for text in the app */
+::selection {
+  background-color: rgba(66, 153, 225, 0.3); /* Chakra blue with opacity */
+}
+
+/* Style for highlighted text when using the translation feature */
+.highlighted-text {
+  background-color: rgba(66, 153, 225, 0.15);
+  border-bottom: 2px solid #4299E1;
+  cursor: pointer;
+}
+
+/* Remove outline for non-keyboard focus */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Maintain keyboard focus styles for accessibility */
+*:focus-visible {
+  outline: 2px solid #4299E1;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+a, button, input, select, textarea {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Ensure images don't overflow their containers */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}

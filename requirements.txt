@@ -1,0 +1,40 @@
+# API Framework
+fastapi>=0.103.1
+uvicorn>=0.23.2
+pydantic>=2.4.1
+
+# Web Scraping & Browser Automation
+beautifulsoup4>=4.12.2
+requests>=2.31.0
+aiohttp>=3.8.5
+selenium>=4.16.0
+playwright>=1.40.0
+
+# LLM Integration
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langchain-community>=0.0.10
+openai>=1.10.0
+
+# NLP and Translation
+spacy>=3.7.0
+nltk>=3.8.1
+transformers>=4.34.0
+
+# Database
+motor>=3.3.1  # MongoDB async driver
+pymongo>=4.5.0
+sqlalchemy>=2.0.0  # Alternative SQL option
+
+# Caching & Queue
+redis>=5.0.0
+celery>=5.3.0
+
+# Testing
+pytest>=7.4.2
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic-settings>=2.0.3
+tenacity>=8.2.3  # For retries
+loguru>=0.7.0    # Better logging
