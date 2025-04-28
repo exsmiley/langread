@@ -1,0 +1,55 @@
+{
+  "query": "news",
+  "language": "en",
+  "articles": [
+    {
+      "title": "Understanding Global Weather Events and International Relations: A Learner’s Guide",
+      "url": "",
+      "source": "AI-generated from multiple sources",
+      "language": "en",
+      "date_published": "2025-04-28T14:39:59.363114",
+      "content": [
+        {
+          "type": "text",
+          "content": "Content could not be properly extracted from the LLM response.",
+          "caption": null,
+          "order": 0
+        }
+      ],
+      "topics": [
+        "free transit",
+        "fall of saigon",
+        "panama canal",
+        "china",
+        "russia",
+        "troops",
+        "us ships",
+        "north korea",
+        "international",
+        "tariffs",
+        "heavy rainfall",
+        "australia",
+        "war",
+        "flooding",
+        "canals",
+        "negotiations",
+        "vietnam war",
+        "ukraine",
+        "suez canal",
+        "thunderstorms",
+        "saigon",
+        "weather warnings",
+        "us treasury",
+        "italy",
+        "vietnamese refugees"
+      ],
+      "text": null
+    }
+  ],
+  "timestamp": "2025-04-28T14:39:59.363372",
+  "logs": [
+    "[FETCH] Searching for articles about: news",
+    "[FETCH] Language: en",
+    "[FETCH] Found 1 articles in 33.33 seconds"
+  ]
+}

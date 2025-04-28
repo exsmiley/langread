@@ -6,6 +6,106 @@ A mobile-friendly web application for intermediate and advanced language learner
 
 LangRead helps language learners improve their skills by reading authentic native-language content. The application initially targets Korean language learners who speak English as their primary language, with potential to expand to other language pairs in the future.
 
+## Quick Start Guide
+
+### Prerequisites
+
+- Python 3.9+
+- Node.js 16+
+- MongoDB (for database functionality)
+- OpenAI API key (for the LLM agent functionality)
+
+### Starting the System
+
+#### 1. Setup Environment
+
+Clone the repository and set up your environment:
+
+```bash
+# Clone the repository (if you haven't already)
+git clone https://github.com/exsmiley/langread.git
+cd langread
+
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install backend dependencies
+pip install -r requirements.txt
+
+# Install frontend dependencies
+cd src/frontend
+npm install
+cd ../..
+```
+
+#### 2. Configure Environment Variables
+
+Create a `.env` file in the project root with your API keys:
+
+```
+OPENAI_API_KEY=your_api_key_here
+MONGODB_URI=your_mongodb_uri_here
+```
+
+#### 3. Start the Services
+
+Start the backend server:
+
+```bash
+cd src/api
+uvicorn main:app --reload --port 8000
+```
+
+In a new terminal, start the frontend server:
+
+```bash
+cd src/frontend
+npm run dev
+```
+
+#### 4. Access the Application
+
+- **Frontend:** http://localhost:5173
+- **API Documentation:** http://localhost:8000/docs
+
+### Stopping the Services
+
+You can use the provided script to stop running services:
+
+```bash
+# Stop API server only
+python kill_servers.py
+
+# Stop all services including frontend (if needed)
+python kill_servers.py --all
+
+# Stop database services (if running locally)
+python kill_servers.py --db
+```
+
+## Development Workflow
+
+### Port Configuration
+
+The system uses the following ports by default:
+
+- **Backend API:** 8000
+- **Frontend:** 5173
+- **MongoDB:** 27017 (if running locally)
+
+### Hot Reload
+
+- Both the backend and frontend servers support hot reloading for development.
+- The backend uses Uvicorn's `--reload` flag to watch for changes.
+- The frontend uses Vite's built-in hot module replacement.
+
+### Component Overview
+
+- **Backend:** FastAPI server providing article fetching, processing, and API endpoints
+- **Frontend:** React application with TypeScript and Vite build system
+- **Database:** MongoDB for storing articles, user data, and vocabulary
+
 ## Key Features
 
 ### Article Aggregation Service
@@ -39,80 +139,34 @@ LangRead helps language learners improve their skills by reading authentic nativ
 
 ## Technical Architecture
 
-- **Frontend**: Mobile-friendly responsive web interface built with a modern JavaScript framework (React, Vue, etc.)
-- **Backend**: Python-based API service for article fetching, processing, and storage
-  - Web scraping via BeautifulSoup/Scrapy
-  - NLP processing via libraries like NLTK, spaCy, or transformers
-  - API framework: FastAPI or Flask
-- **Database**: MongoDB or PostgreSQL for storing articles, user vocabulary, and learning progress
-- **Caching**: Redis for temporary storage and rate limiting
+- **Frontend**: React with TypeScript and Chakra UI for the interface
+- **Backend**: Python FastAPI for the API service
+  - Web scraping via newspaper3k
+  - LLM-based content processing using the OpenAI API
+  - RSS feed-based article discovery
+- **Database**: MongoDB for storing articles, user vocabulary, and learning progress
+- **Caching**: In-memory and file-based caching for article data
 
-## Development Roadmap
+## API Reference
 
-### Phase 1 - Core Features
-- Article aggregation and display functionality
-- Basic word/phrase translation on hover/highlight
-- Simple vocabulary collection
+### Articles
 
-### Phase 2 - Enhanced Learning
-- Quiz generation system
-- Expanded vocabulary management
-- Flashcard functionality
+- `POST /articles` - Get articles based on query, language, and content type
+- `POST /rewrite` - Rewrite articles at specific difficulty levels
+- `POST /translate` - Translate text from source language to target language
+- `POST /generate-quiz` - Generate a quiz for an article
+- `GET /articles/{content_type}` - Retrieve articles by content type with filters
 
-### Phase 3 - Optimization
-- Performance improvements
-- User experience refinements
-- Support for additional language pairs
+### Cache Management
 
-## Getting Started
+- `GET /cache/stats` - Get cache statistics
+- `GET /cache/queries` - List all cached queries
+- `POST /cache/clear` - Clear the entire cache
 
-### Prerequisites
+### Bulk Operations
 
-- Python 3.9+
-- Node.js 16+
-- MongoDB (optional, can be replaced with other databases)
-- Redis (optional, for caching)
-- OpenAI API key (for the LLM agent functionality)
-
-### Backend Setup
-
-1. Create a virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-2. Install the Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Set up environment variables (create a `.env` file in the project root):
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   MONGODB_URI=your_mongodb_uri_here
-   ```
-
-4. Run the FastAPI backend:
-   ```bash
-   cd src/api
-   uvicorn main:app --reload
-   ```
-   The API will be available at http://localhost:8000
-
-### Frontend Setup
-
-1. Install the frontend dependencies:
-   ```bash
-   cd src/frontend
-   npm install
-   ```
-
-2. Run the frontend development server:
-   ```bash
-   npm run start
-   ```
-   The frontend will be available at http://localhost:3000
+- `POST /bulk-fetch` - Start a bulk fetch operation
+- `GET /bulk-fetch/{operation_id}` - Get status of a bulk fetch operation
 
 ## Current Implementation Status
 
@@ -121,10 +175,11 @@ LangRead helps language learners improve their skills by reading authentic nativ
 - ✅ Basic API structure set up
 - ✅ LLM agent-based content fetcher architecture
 - ✅ Article model definition
+- ✅ RSS feed-based article discovery
+- ✅ Article grouping and rewriting at different difficulty levels
 - ✅ Vocabulary management system
-- ⬜ Database integration
+- ✅ Database integration
 - ⬜ Authentication system
-- ⬜ Caching layer
 
 ### Frontend (React)
 
@@ -137,19 +192,22 @@ LangRead helps language learners improve their skills by reading authentic nativ
 - ⬜ User authentication UI
 - ⬜ Mobile responsiveness optimization
 
-## Next Steps
+## Troubleshooting
 
-1. Implement the database layer for article and vocabulary storage
-2. Complete the LLM agent integration with real API calls
-3. Add user authentication
-4. Implement vocabulary tracking across articles
-5. Connect frontend and backend
-6. Deploy the application
+### Common Issues
 
-## API Reference
+1. **Connection errors**: Ensure MongoDB is running if your configuration requires it
+2. **API connectivity**: Verify that the API port (8000) is free and the server is running
+3. **Frontend/backend communication**: Check that the frontend's API baseURL is correctly set to `http://localhost:8000`
 
-### Articles
+### Logs
 
-- `POST /articles` - Get articles based on query, language, and content type
-- `POST /translate` - Translate text from source language to target language
-- `POST /generate-quiz` - Generate a quiz for an article
+- Backend logs are stored in `langread.log` in the project root
+- Frontend console logs can be viewed in the browser developer tools
+
+## Contributing
+
+1. Create a feature branch (`git checkout -b feature/amazing-feature`)
+2. Commit your changes (`git commit -m 'Add some amazing feature'`)
+3. Push to the branch (`git push origin feature/amazing-feature`)
+4. Open a Pull Request

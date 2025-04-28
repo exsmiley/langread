@@ -1,249 +1,744 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  Box, 
-  Container, 
-  Heading, 
-  Text, 
-  VStack, 
-  HStack, 
-  Spinner, 
-  Image, 
-  Badge, 
-  Divider,
-  Flex,
+import React, { useState, useEffect, useCallback, useMemo, FormEvent, ChangeEvent } from 'react';
+import {
+  Box,
+  Container,
+  Heading,
+  Text,
   Button,
+  VStack,
+  HStack,
+  FormControl,
+  FormLabel,
+  Select,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Radio,
+  RadioGroup,
+  Stack,
+  Flex,
+  Wrap,
+  WrapItem,
+  Tag,
+  TagLabel,
+  TagCloseButton,
+  Spinner,
   useColorModeValue,
-  SimpleGrid
+  useToast,
+  Alert,
+  AlertIcon,
+  Badge,
+  SimpleGrid,
+  Image,
+  Divider
 } from '@chakra-ui/react';
-import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-dom';
-import axios from 'axios';
+import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '../api';
 
-// Mock data for development
-const MOCK_ARTICLES = [
-  {
-    id: '1',
-    title: '인공지능의 발전과 미래',
-    description: '최근 인공지능 기술의 발전과 그 영향에 대한 분석',
-    source: 'Tech Korea',
-    date_published: '2025-04-22T10:30:00Z',
-    topics: ['기술', '인공지능', 'AI'],
-    image_url: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485'
-  },
-  {
-    id: '2',
-    title: '한국 요리의 세계화: 비빔밥부터 김치까지',
-    description: '한국 음식이 세계 각국에서 인기를 얻고 있는 이유',
-    source: 'Food & Culture',
-    date_published: '2025-04-21T14:15:00Z',
-    topics: ['음식', '문화', '한국요리'],
-    image_url: 'https://images.unsplash.com/photo-1590301157890-4810ed352733'
-  },
-  {
-    id: '3',
-    title: '2025년 봄 여행지 추천: 국내 명소 10곳',
-    description: '봄을 맞아 방문하기 좋은 국내 여행지 추천',
-    source: 'Travel Magazine',
-    date_published: '2025-04-20T09:45:00Z',
-    topics: ['여행', '봄', '국내여행'],
-    image_url: 'https://images.unsplash.com/photo-1551918120-9739cb430c6d'
-  },
-  {
-    id: '4',
-    title: '최신 영화 리뷰: 올해의 기대작',
-    description: '2025년 상반기 개봉한 영화들에 대한 평론가들의 리뷰',
-    source: 'Cinema Today',
-    date_published: '2025-04-19T16:30:00Z',
-    topics: ['영화', '리뷰', '엔터테인먼트'],
-    image_url: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1'
-  },
-  {
-    id: '5',
-    title: '건강한 생활습관: 전문가들의 조언',
-    description: '일상에서 실천할 수 있는 건강한 생활 습관에 대한 전문가들의 조언',
-    source: 'Health & Wellness',
-    date_published: '2025-04-18T11:20:00Z',
-    topics: ['건강', '생활습관', '웰빙'],
-    image_url: 'https://images.unsplash.com/photo-1549576490-b0b4831ef60a'
-  }
-];
-
+// Type definitions
 interface Article {
   id: string;
   title: string;
   description: string;
   source: string;
   date_published: string;
-  topics: string[];
-  image_url: string;
+  topics?: string[];
+  tag_ids?: string[];
+  image_url?: string;
+  content?: string | any[];
+  difficulty?: string;
+  language?: string;
 }
 
-const ArticleListPage = () => {
-  const [searchParams] = useSearchParams();
+interface Tag {
+  _id: string;
+  name: string;
+  localized_name?: string;
+  original_language: string;
+  translations: Record<string, string>;
+  article_count?: number;
+  active?: boolean;
+}
+
+// Utility functions for handling article data
+const getArticleId = (article: Article | any): string => {
+  return article?.id || article?._id || 'unknown';
+};
+
+const getArticleTitle = (article: Article | any): string => {
+  return article?.title || 'Untitled Article';
+};
+
+const getArticleDescription = (article: Article | any): string => {
+  // If the article has an explicit description, use it
+  if (article?.description) {
+    return article.description;
+  }
+  
+  // Otherwise, try to extract the first paragraph from content
+  if (Array.isArray(article?.content)) {
+    // Find the first text section
+    const textSection = article.content.find((section: any) => 
+      section.type === 'text' && section.content
+    );
+    
+    if (textSection?.content) {
+      // Extract the first paragraph (up to first newline)
+      const firstParagraph = textSection.content.split('\n')[0];
+      return firstParagraph || '';
+    }
+  } else if (typeof article?.content === 'string') {
+    // Split by newline and get first paragraph
+    return article.content.split('\n')[0] || '';
+  }
+  
+  // Fallback to empty string if no description can be found
+  return '';
+};
+
+const getArticleSource = (article: Article | any): string => {
+  return article?.source || 'Unknown Source';
+};
+
+const getArticleDate = (article: Article | any): string => {
+  return article?.date_published || new Date().toISOString();
+};
+
+const getArticleTopics = (article: Article | any): string[] => {
+  return Array.isArray(article?.topics) ? article.topics : [];
+};
+
+const getArticleImageUrl = (article: Article | any): string => {
+  // If article already has an image_url, use it
+  if (article?.image_url) {
+    return article.image_url;
+  }
+  
+  // If content is an array of sections, try to find an image section
+  if (Array.isArray(article?.content)) {
+    const imageSection = article.content.find((section: any) => section.type === 'image');
+    if (imageSection?.content) {
+      return imageSection.content;
+    }
+  }
+  
+  // Default fallback images by language
+  const defaultImages = {
+    ko: 'https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7',
+    en: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5'
+  };
+  
+  return defaultImages[article?.language as keyof typeof defaultImages] || defaultImages.en;
+};
+
+const getArticleContent = (article: Article | any): string => {
+  // Handle content as an array of sections (as used in the API)
+  if (Array.isArray(article?.content)) {
+    return article.content
+      .filter((section: any) => section.type === 'text')
+      .map((section: any) => section.content)
+      .join('\n\n');
+  }
+  
+  // Handle content as a simple string
+  return article?.content || article?.description || '';
+};
+
+const getArticleDifficulty = (article: Article | any): string => {
+  return article?.difficulty || 'intermediate';
+};
+
+const ArticleListPage: React.FC = () => {
+  // State management with URL parameters
   const [articles, setArticles] = useState<Article[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const toast = useToast();
   
-  const query = searchParams.get('query') || '';
-  const language = searchParams.get('language') || 'ko';
-  const topicType = searchParams.get('topicType') || 'news';
+  // Language and tag states
+  const [nativeLanguage, setNativeLanguage] = useState(() => {
+    return searchParams.get('native') || 'en';
+  });
+  const [targetLanguage, setTargetLanguage] = useState(() => {
+    return searchParams.get('target') || 'ko';
+  });
+  const [difficulty, setDifficulty] = useState(() => {
+    return searchParams.get('difficulty') || 'intermediate';
+  });
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [filteredTags, setFilteredTags] = useState<Tag[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(() => {
+    const tagParam = searchParams.get('tags');
+    return tagParam ? tagParam.split(',') : [];
+  });
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [initialTagLimit, setInitialTagLimit] = useState(10);
   
-  useEffect(() => {
-    const fetchArticles = async () => {
-      // Don't fetch if there's no query
-      if (!query) return;
+  const bgColor = useColorModeValue('gray.50', 'gray.900');
+  const formBgColor = useColorModeValue('white', 'gray.800');
+  const boxShadow = '0px 4px 10px rgba(0, 0, 0, 0.05)';
+  const tagBgColor = useColorModeValue('gray.100', 'gray.700');
+  const selectedTagBgColor = useColorModeValue('blue.100', 'blue.700');
+
+  // Language options for dropdown
+  const languageOptions = [
+    { value: 'en', label: 'English' },
+    { value: 'ko', label: 'Korean' },
+    { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
+    { value: 'de', label: 'German' },
+    { value: 'ja', label: 'Japanese' },
+    { value: 'zh', label: 'Chinese' },
+    { value: 'ru', label: 'Russian' }
+  ];
+  
+  // Safe filter function for articles
+  const safeFilterArticles = useCallback((articleList: Article[], tagFilter: string[]) => {
+    if (!Array.isArray(articleList)) return [];
+    try {
+      return articleList.filter(article => {
+        if (tagFilter.length === 0) return true;
+        const articleTopics = getArticleTopics(article);
+        return articleTopics.some(topic => tagFilter.includes(topic));
+      });
+    } catch (e) {
+      console.error('Error filtering articles:', e);
+      return [];
+    }
+  }, []);
+
+  // Safe filter function to ensure we have valid article data
+  const memoizedSafeFilterArticles = useMemo(() => safeFilterArticles, [safeFilterArticles]);
+  
+  // Fetch available tags from the backend API
+  const fetchTags = async () => {
+    try {
+      setTagsLoading(true);
+      console.log(`Fetching tags for language: ${targetLanguage}`);
       
-      setIsLoading(true);
+      // Connect to the backend API to get tags
+      const response = await api.get(`/api/tags?language=${targetLanguage}&active=true`);
+      console.log('Tag response data:', response.data);
+      
+      if (response.data && response.data.tags && Array.isArray(response.data.tags)) {
+        // Sort tags by article count (most popular first)
+        const sortedTags = [...response.data.tags].sort((a, b) => 
+          (b.article_count || 0) - (a.article_count || 0)
+        );
+        setAvailableTags(sortedTags);
+        setFilteredTags(sortedTags); // Initialize filtered tags with all tags
+      } else if (response.data && Array.isArray(response.data)) {
+        // Handle case where API returns array directly
+        const sortedTags = [...response.data].sort((a, b) => 
+          (b.article_count || 0) - (a.article_count || 0)
+        );
+        setAvailableTags(sortedTags);
+        setFilteredTags(sortedTags); // Initialize filtered tags with all tags
+      } else {
+        console.warn('Received unexpected data format from tags API');
+        // Use fallback tags as HomePage does
+        const fallbackTags: Tag[] = [
+          {
+            _id: '1',
+            name: 'technology',
+            original_language: 'en',
+            translations: { en: 'technology', ko: '기술', fr: 'technologie' },
+            article_count: 12
+          },
+          {
+            _id: '2',
+            name: 'sports',
+            original_language: 'en',
+            translations: { en: 'sports', ko: '스포츠', fr: 'sports' },
+            article_count: 8
+          },
+          {
+            _id: '3',
+            name: 'music',
+            original_language: 'en',
+            translations: { en: 'music', ko: '음악', fr: 'musique' },
+            article_count: 6
+          },
+          {
+            _id: '4',
+            name: 'food',
+            original_language: 'en',
+            translations: { en: 'food', ko: '음식', fr: 'nourriture' },
+            article_count: 10
+          },
+          {
+            _id: '5',
+            name: 'travel',
+            original_language: 'en',
+            translations: { en: 'travel', ko: '여행', fr: 'voyage' },
+            article_count: 7
+          },
+          {
+            _id: '6',
+            name: 'politics',
+            original_language: 'en',
+            translations: { en: 'politics', ko: '정치', fr: 'politique' },
+            article_count: 9
+          }
+        ];
+        setAvailableTags(fallbackTags);
+        setFilteredTags(fallbackTags);
+      }
+    } catch (error) {
+      console.error('Error fetching tags:', error);
+      // Use fallback tags in case of error
+      const fallbackTags: Tag[] = [
+        {
+          _id: '1',
+          name: 'technology',
+          original_language: 'en',
+          translations: { en: 'technology', ko: '기술', fr: 'technologie' },
+          article_count: 12
+        },
+        {
+          _id: '2',
+          name: 'sports',
+          original_language: 'en',
+          translations: { en: 'sports', ko: '스포츠', fr: 'sports' },
+          article_count: 8
+        },
+        {
+          _id: '3',
+          name: 'music',
+          original_language: 'en',
+          translations: { en: 'music', ko: '음악', fr: 'musique' },
+          article_count: 6
+        },
+        {
+          _id: '4',
+          name: 'food',
+          original_language: 'en',
+          translations: { en: 'food', ko: '음식', fr: 'nourriture' },
+          article_count: 10
+        },
+        {
+          _id: '5',
+          name: 'travel',
+          original_language: 'en',
+          translations: { en: 'travel', ko: '여행', fr: 'voyage' },
+          article_count: 7
+        },
+        {
+          _id: '6',
+          name: 'politics',
+          original_language: 'en',
+          translations: { en: 'politics', ko: '정치', fr: 'politique' },
+          article_count: 9
+        }
+      ];
+      setAvailableTags(fallbackTags);
+      setFilteredTags(fallbackTags);
+    } finally {
+      setTagsLoading(false);
+    }
+  };
+  
+  // Filter tags based on search query
+  useEffect(() => {
+    let filteredResults = availableTags;
+    
+    // Apply search filtering if there's a query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filteredResults = availableTags.filter(tag => {
+        // Search by name
+        if (tag.name.toLowerCase().includes(query)) return true;
+        
+        // Search in translations
+        if (tag.translations) {
+          for (const langCode in tag.translations) {
+            const translation = tag.translations[langCode];
+            if (translation.toLowerCase().includes(query)) return true;
+          }
+        }
+        
+        return false;
+      });
+    }
+    
+    // Always limit results to the top 10 tags
+    const limitedResults = filteredResults.slice(0, initialTagLimit);
+    setFilteredTags(limitedResults);
+  }, [availableTags, searchQuery, initialTagLimit]);
+  
+  // Handle tag selection
+  const handleTagClick = (tag: Tag) => {
+    if (selectedTagIds.includes(tag._id)) {
+      // Remove tag if already selected
+      setSelectedTags(selectedTags.filter(t => t._id !== tag._id));
+      setSelectedTagIds(selectedTagIds.filter(id => id !== tag._id));
+    } else {
+      // Add tag if not already selected
+      setSelectedTags([...selectedTags, tag]);
+      setSelectedTagIds([...selectedTagIds, tag._id]);
+    }
+  };
+  
+  // Handle form submission
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Validate required fields
+    if (!targetLanguage) {
+      toast({
+        title: 'Target language required',
+        description: 'Please select a target language to find articles',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    // Update search params - only include non-empty values
+    const params: Record<string, string> = {};
+    
+    if (nativeLanguage) params.native = nativeLanguage;
+    if (targetLanguage) params.target = targetLanguage;
+    if (difficulty) params.difficulty = difficulty;
+    
+    if (selectedTagIds.length > 0) {
+      params.tags = selectedTagIds.join(',');
+    }
+    
+    setSearchParams(params);
+  };
+
+  // Use a ref to prevent multiple redundant requests
+  const isFetchingRef = React.useRef(false);
+  const previousFetchParamsRef = React.useRef('');
+  
+  // Fetch articles from API only when necessary and when we have parameters
+  useEffect(() => {
+    // Skip initial fetch if no target language is set
+    if (!targetLanguage) {
+      setLoading(false);
+      return;
+    }
+    
+    // Create a stable fetch params string to compare against previous requests
+    const currentFetchParams = JSON.stringify({
+      language: targetLanguage,
+      tags: selectedTagIds,
+      difficulty: difficulty
+    });
+    
+    // Skip fetching if parameters haven't changed
+    if (previousFetchParamsRef.current === currentFetchParams) {
+      console.log('Skipping fetch - parameters unchanged');
+      return;
+    }
+    
+    // Skip if already fetching
+    if (isFetchingRef.current) {
+      console.log('Skipping fetch - already in progress');
+      return;
+    }
+    
+    const fetchArticles = async () => {
+      isFetchingRef.current = true;
+      setLoading(true);
       setError(null);
       
       try {
-        // In a real app, we would fetch from the API
-        // const response = await axios.post('/api/articles', {
-        //   query,
-        //   language,
-        //   topic_type: topicType,
-        //   max_sources: 10
-        // });
+        if (!targetLanguage) {
+          setError('Please select a target language');
+          setLoading(false);
+          isFetchingRef.current = false;
+          return;
+        }
         
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Build request body with all necessary parameters
+        const requestBody: Record<string, any> = {
+          language: targetLanguage,
+          group_and_rewrite: true,
+          difficulty: difficulty || 'intermediate' // Default to intermediate if not specified
+        };
         
-        // Use mock data for now
-        setArticles(MOCK_ARTICLES);
-      } catch (err) {
-        console.error('Error fetching articles:', err);
-        setError('Failed to fetch articles. Please try again.');
+        // Include selected tags if any
+        if (selectedTagIds.length > 0) {
+          requestBody.tag_ids = selectedTagIds;
+        }
+        
+        console.log('Fetching articles from API:', requestBody);
+        const response = await api.post('/api/articles', requestBody);
+        previousFetchParamsRef.current = currentFetchParams;
+        
+        if (response.data && response.data.articles && Array.isArray(response.data.articles)) {
+          // Use articles directly from the API response without transformation
+          setArticles(response.data.articles);
+          console.log(`Successfully loaded ${response.data.articles.length} articles`);
+        } else {
+          console.error('API returned no article data or invalid format:', response.data);
+          setError('No articles found for your query. Try a different topic or language.');
+          setArticles([]);
+        }
+      } catch (error) {
+        console.error('Error fetching articles:', error);
+        setError('Failed to load articles. Please try again later.');
+        setArticles([]);
+        toast({
+          title: 'Error loading articles',
+          description: 'Could not connect to the article service. Please try again later.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
+        isFetchingRef.current = false;
       }
     };
     
     fetchArticles();
-  }, [query, language, topicType]);
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-  
+  }, [targetLanguage, selectedTagIds, difficulty, memoizedSafeFilterArticles, toast]);
+
+  const handleArticleClick = useCallback((articleId: string) => {
+    if (!articleId) {
+      console.error('Attempted to navigate to article with invalid ID');
+      return;
+    }
+    navigate(`/articles/${articleId}`);
+  }, [navigate]);
+
+  // Fetch tags when the component mounts or native language changes
+  useEffect(() => {
+    fetchTags();
+  }, [targetLanguage]);
+
   return (
-    <Container maxW="container.xl" p={4}>
-      <VStack spacing={6} align="stretch">
+    <Container maxW="container.xl" py={5}>
+      <VStack spacing={8} align="stretch">
         <Box>
-          <Heading as="h1" size="xl">
-            {topicType === 'news' ? 'News Articles' : 'Articles'} {query ? `about "${query}"` : ''}
-          </Heading>
-          <Text color="gray.600" mt={2}>
-            {language === 'ko' ? '한국어' : language === 'ja' ? '日本語' : 'Other language'} • 
-            {topicType === 'news' ? ' News' : 
-             topicType === 'blogs' ? ' Blogs' : 
-             topicType === 'stories' ? ' Stories' : ' Educational Content'}
-          </Text>
+          <Heading as="h1" size="xl" mb={4}>Browse Articles</Heading>
+          <Text color="gray.600">Find articles in your target language based on your interests.</Text>
         </Box>
-        
-        <Divider />
-        
-        {isLoading ? (
-          <Flex justify="center" align="center" minH="300px">
-            <VStack>
-              <Spinner size="xl" color="blue.500" />
-              <Text mt={4}>Finding the best articles for you...</Text>
-            </VStack>
-          </Flex>
-        ) : error ? (
-          <Box 
-            p={6} 
-            borderRadius="md" 
-            bg="red.50" 
-            color="red.600"
-            textAlign="center"
-          >
-            <Text>{error}</Text>
-            <Button 
-              mt={4} 
-              colorScheme="red" 
-              variant="outline"
-              onClick={() => window.location.reload()}
-            >
-              Try Again
-            </Button>
-          </Box>
-        ) : articles.length === 0 ? (
-          <Box 
-            p={6} 
-            borderRadius="md" 
-            bg="gray.50" 
-            textAlign="center"
-          >
-            <Text>No articles found. Try a different search query.</Text>
-            <Button 
-              mt={4} 
-              colorScheme="blue" 
-              onClick={() => navigate('/')}
-            >
-              Back to Search
-            </Button>
-          </Box>
-        ) : (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {articles.map(article => (
-              <Box 
-                key={article.id}
-                as={RouterLink}
-                to={`/articles/${article.id}`}
-                borderWidth="1px"
-                borderRadius="lg"
-                borderColor={borderColor}
-                overflow="hidden"
-                bg={bgColor}
-                _hover={{ 
-                  transform: 'translateY(-4px)',
-                  shadow: 'md',
-                  transition: 'all 0.3s ease'
-                }}
-                transition="all 0.3s ease"
-              >
-                <Image 
-                  src={`${article.image_url}?auto=format&fit=crop&w=600&q=80`}
-                  alt={article.title}
-                  objectFit="cover"
-                  h="200px"
-                  w="100%"
-                  fallbackSrc="https://via.placeholder.com/600x200?text=Image+Not+Available"
-                />
-                
-                <Box p={5}>
-                  <HStack spacing={2} mb={2}>
-                    {article.topics.slice(0, 3).map(topic => (
-                      <Badge key={topic} colorScheme="blue" variant="subtle">
-                        {topic}
-                      </Badge>
+
+        <Box bg={formBgColor} p={6} borderRadius="md" boxShadow={boxShadow}>
+          <form onSubmit={handleSubmit}>
+            <VStack spacing={5} align="stretch">
+              <HStack spacing={4} wrap={{ base: "wrap", md: "nowrap" }}>
+                <FormControl id="nativeLanguage">
+                  <FormLabel fontWeight="bold">My Language</FormLabel>
+                  <Select
+                    value={nativeLanguage}
+                    onChange={(e) => setNativeLanguage(e.target.value)}
+                  >
+                    {languageOptions.map(lang => (
+                      <option key={lang.value} value={lang.value}>{lang.label}</option>
                     ))}
-                  </HStack>
-                  
-                  <Heading as="h3" size="md" mb={2} noOfLines={2}>
-                    {article.title}
-                  </Heading>
-                  
-                  <Text fontSize="sm" color="gray.500" mb={3}>
-                    {article.source} • {formatDate(article.date_published)}
-                  </Text>
-                  
-                  <Text noOfLines={3} color="gray.600">
-                    {article.description}
-                  </Text>
+                  </Select>
+                </FormControl>
+
+                <FormControl id="targetLanguage" isRequired>
+                  <FormLabel fontWeight="bold">Target Language</FormLabel>
+                  <Select
+                    value={targetLanguage}
+                    onChange={(e) => {
+                      setTargetLanguage(e.target.value);
+                      setSelectedTags([]);
+                      setSelectedTagIds([]);
+                    }}
+                    placeholder="Select target language"
+                  >
+                    {languageOptions.map(lang => (
+                      <option key={lang.value} value={lang.value}>{lang.label}</option>
+                    ))}
+                  </Select>
+                </FormControl>
+              </HStack>
+
+
+
+              <FormControl id="difficultyLevel" isRequired>
+                <FormLabel fontWeight="bold">Difficulty Level</FormLabel>
+                <RadioGroup value={difficulty} onChange={setDifficulty}>
+                  <Stack direction="row" spacing={4}>
+                    <Radio value="beginner">Beginner</Radio>
+                    <Radio value="intermediate">Intermediate</Radio>
+                    <Radio value="advanced">Advanced</Radio>
+                  </Stack>
+                </RadioGroup>
+              </FormControl>
+
+              <FormControl id="tagSelection">
+                <FormLabel fontWeight="bold">Select Tags</FormLabel>
+                
+                {/* Add search bar for tags */}
+                <InputGroup mb={3}>
+                  <InputLeftElement pointerEvents="none">
+                    <SearchIcon color="gray.400" />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Search for tags..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </InputGroup>
+
+                {/* Selected Tags */}
+                {selectedTags.length > 0 && (
+                  <Box mb={4}>
+                    <Text fontSize="sm" mb={2}>Selected Tags:</Text>
+                    <Wrap>
+                      {selectedTags.map(tag => (
+                        <WrapItem key={tag._id}>
+                          <Tag
+                            size="md"
+                            borderRadius="full"
+                            variant="solid"
+                            colorScheme="blue"
+                          >
+                            <TagLabel>
+                              {tag.translations && tag.translations[nativeLanguage] 
+                                ? tag.translations[nativeLanguage] 
+                                : tag.name}
+                            </TagLabel>
+                            <TagCloseButton onClick={() => handleTagClick(tag)} />
+                          </Tag>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  </Box>
+                )}
+
+                {/* Available Tags */}
+                <Box maxH="150px" overflowY="auto" p={2} borderWidth="1px" borderRadius="md">
+                  {tagsLoading ? (
+                    <Flex justify="center" align="center" h="100px">
+                      <Spinner />
+                    </Flex>
+                  ) : filteredTags.length > 0 ? (
+                    <Wrap>
+                      {filteredTags.map(tag => (
+                        <WrapItem key={tag._id}>
+                          <Tag
+                            size="md"
+                            borderRadius="full"
+                            variant={selectedTagIds.includes(tag._id) ? 'solid' : 'outline'}
+                            colorScheme={selectedTagIds.includes(tag._id) ? 'blue' : 'gray'}
+                            cursor="pointer"
+                            onClick={() => handleTagClick(tag)}
+                            m={1}
+                          >
+                            <TagLabel>
+                              {tag.translations && tag.translations[nativeLanguage] 
+                                ? tag.translations[nativeLanguage] 
+                                : tag.name}
+                            </TagLabel>
+                            {tag.article_count ? (
+                              <Badge ml={1} fontSize="0.6em" colorScheme={selectedTagIds.includes(tag._id) ? 'blue' : 'gray'}>
+                                {tag.article_count}
+                              </Badge>
+                            ) : null}
+                          </Tag>
+                        </WrapItem>
+                      ))}
+                    </Wrap>
+                  ) : (
+                    <Text textAlign="center" color="gray.500" py={4}>
+                      No tags found for this language.
+                    </Text>
+                  )}
                 </Box>
-              </Box>
-            ))}
-          </SimpleGrid>
+              </FormControl>
+
+              <Button
+                type="submit"
+                colorScheme="blue"
+                size="lg"
+                width="100%"
+                isLoading={loading}
+              >
+                Find Articles
+              </Button>
+            </VStack>
+          </form>
+        </Box>
+
+        {error && (
+          <Alert status="error" mb={4}>
+            <AlertIcon />
+            {error}
+          </Alert>
         )}
+
+        {loading ? (
+          <Flex justify="center" py={10}>
+            <Spinner size="xl" />
+          </Flex>
+        ) : articles.length > 0 ? (
+          <>
+            <Heading as="h2" size="lg" mt={6} mb={4}>
+              {articles.length} Articles Found
+            </Heading>
+            
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+              {articles.map(article => (
+                <Box
+                  key={getArticleId(article)}
+                  borderWidth="1px"
+                  borderRadius="lg"
+                  overflow="hidden"
+                  onClick={() => handleArticleClick(getArticleId(article))}
+                  cursor="pointer"
+                  transition="all 0.2s"
+                  _hover={{ transform: 'translateY(-4px)', boxShadow: 'lg' }}
+                  h="100%"
+                  bg="white"
+                >
+                  <Image
+                    src={getArticleImageUrl(article)}
+                    alt={getArticleTitle(article)}
+                    objectFit="cover"
+                    w="100%"
+                    h="180px"
+                  />
+                  <Box p={5}>
+                    <Text fontWeight="semibold" fontSize="lg" mb={2} noOfLines={2}>
+                      {getArticleTitle(article)}
+                    </Text>
+                    <Text color="gray.600" mb={3} noOfLines={3}>
+                      {getArticleDescription(article)}
+                    </Text>
+                    <Flex justify="space-between" align="center">
+                      <Text fontSize="sm" color="gray.500">
+                        {getArticleSource(article)}
+                      </Text>
+                      <Text fontSize="sm" color="gray.500">
+                        {new Date(getArticleDate(article)).toLocaleDateString()}
+                      </Text>
+                    </Flex>
+                    {getArticleTopics(article).length > 0 && (
+                      <HStack mt={3} spacing={2} flexWrap="wrap">
+                        {getArticleTopics(article).slice(0, 3).map((topic, i) => (
+                          <Badge key={`${topic}-${i}`} colorScheme="blue" fontSize="xs">
+                            {topic}
+                          </Badge>
+                        ))}
+                      </HStack>
+                    )}
+                  </Box>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </>
+        ) : !loading && !error ? (
+          <Box textAlign="center" py={10}>
+            <Heading as="h2" size="lg" mb={4}>No Articles Found</Heading>
+            <Text>Try adjusting your search criteria or selecting different tags.</Text>
+          </Box>
+        ) : null}
       </VStack>
     </Container>
   );

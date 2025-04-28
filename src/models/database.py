@@ -48,6 +48,7 @@ class DatabaseService:
         self.vocabulary_collection = None
         self.users_collection = None
         self.flashcards_collection = None
+        self.tags_collection = None
     
     async def connect(self):
         """Connect to the database."""
@@ -60,6 +61,7 @@ class DatabaseService:
             self.vocabulary_collection = self.db.vocabulary
             self.users_collection = self.db.users
             self.flashcards_collection = self.db.flashcards
+            self.tags_collection = self.db.tags
             
             # Create indexes
             await self.articles_collection.create_index([("date_fetched", 1)])
@@ -203,6 +205,31 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error getting articles: {str(e)}")
             return []
+    
+    async def get_article_tags(self, article_id: str, language: str = None) -> List[dict]:
+        """Get all tags for an article with optional language filtering for translations"""
+        article = await self.articles_collection.find_one({"_id": article_id})
+        if not article or "tag_ids" not in article:
+            return []
+            
+        # Convert tag IDs to ObjectId
+        tag_ids = [ObjectId(tag_id) for tag_id in article["tag_ids"]]
+        if not tag_ids:
+            return []
+            
+        # Get tags
+        cursor = self.tags_collection.find({"_id": {"$in": tag_ids}})
+        tags = await cursor.to_list(length=1000)
+        
+        # If language is specified, add the localized name to each tag
+        if language and language != "en":
+            for tag in tags:
+                if "translations" in tag and language in tag["translations"]:
+                    tag["localized_name"] = tag["translations"][language]
+                else:
+                    tag["localized_name"] = tag["name"]
+        
+        return tags
     
     # Vocabulary methods
     async def save_vocabulary(self, vocabulary_data: Dict[str, Any]) -> str:
@@ -429,6 +456,300 @@ class DatabaseService:
             logger.error(f"Error getting flashcards: {str(e)}")
             return []
 
+
+    async def create_tag(self, name: str, language: str, english_name: str = None, translations: dict = None, article_ids: List[str] = [], auto_approve: bool = False) -> dict:
+        """
+        Create a new tag with English as the canonical name and optional translations.
+        
+        IMPORTANT TAG DESIGN NOTE: In LangRead, all tags are canonically stored in English, with translations
+        stored as metadata. This allows for consistent cross-language article categorization while
+        enabling localized display in the user interface.
+        
+        When a tag is displayed in the UI, it should be shown in the user's native language, not the
+        target language they are learning. So an English user learning Korean should see tags in English.
+        
+        Args:
+            name: The tag name in the source language
+            language: The language code of the source language
+            english_name: The English name for this tag (if name is not already in English)
+            translations: Dictionary of translations keyed by language code
+            article_ids: List of article IDs to associate with this tag
+            auto_approve: Whether to automatically approve this tag
+            
+        Returns:
+            The created tag document
+        """
+        # Use english_name if provided, otherwise use name (assuming it's already in English)
+        canonical_name = english_name.lower() if english_name else name.lower()
+        
+        # Initialize translations dict if not provided
+        if translations is None:
+            translations = {}
+            
+        # If name is not in English and not already in translations, add it
+        if language != "en" and language not in translations and english_name is not None:
+            translations[language] = name.lower()
+        
+        # Check if this is a language tag that should be auto-approved
+        # Language tags include language codes (en, ko, fr) and language names (english, korean, french)
+        language_codes = ["en", "ko", "fr", "es", "de", "ja", "zh", "ru", "pt", "ar", "hi", "bn", "it"]
+        language_names = ["english", "korean", "french", "spanish", "german", "japanese", "chinese", 
+                         "russian", "portuguese", "arabic", "hindi", "bengali", "italian"]
+        
+        # Also automatically approve standard category tags
+        auto_approved_categories = [
+            # General categories
+            "news", "politics", "technology", "science", "health", "business", "economy",
+            "entertainment", "sports", "education", "environment", "culture", "art",
+            "food", "travel", "religion", "history", "literature", "fashion", "music",
+            "film", "television", "automotive", "finance", "lifestyle", "social_issues", "international", "crime",
+            # Include translations of these categories
+            "뉴스", "정치", "기술", "과학", "건강", "경제", "비즈니스", "엔터테인먼트", "스포츠",
+            "noticias", "política", "tecnología", "ciencia", "salud", "negocios",
+            "actualités", "politique", "technologie", "santé", "affaires"
+        ]
+        
+        is_auto_approved = auto_approve or \
+                         canonical_name.lower() in language_codes or \
+                         canonical_name.lower() in language_names or \
+                         canonical_name.lower() in auto_approved_categories
+        
+        tag = {
+            "name": canonical_name,  # Store canonical English name
+            "language_specific": language != "en",  # Flag if it's a language-specific concept
+            "translations": translations,  # Store translations in different languages
+            "original_language": language,  # Record the original language it was created in
+            "article_count": len(article_ids),
+            "active": is_auto_approved,  # Auto-approve language tags and standard categories
+            "auto_approved": is_auto_approved,  # Mark that this was auto-approved
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        result = await self.tags_collection.insert_one(tag)
+        tag["_id"] = result.inserted_id
+        
+        # Associate tag with articles
+        for article_id in article_ids:
+            await self.add_tag_to_article(str(tag["_id"]), article_id)
+            
+        return tag
+    
+    async def get_tag(self, tag_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a tag by ID.
+        
+        Args:
+            tag_id: Tag ID
+            
+        Returns:
+            Tag data or None if not found
+        """
+        try:
+            tag = await self.tags_collection.find_one({"_id": ObjectId(tag_id)})
+            if tag:
+                tag["_id"] = str(tag["_id"])
+            return tag
+        except Exception as e:
+            logger.error(f"Error getting tag: {str(e)}")
+            return None
+    
+    async def get_tags(self, language: str = None, active_only: bool = False, query: str = None) -> List[dict]:
+        """Get all tags with optional filtering"""
+        filter_query = {}
+        
+        if language:
+            # For language filtering, check if it's either the original language
+            # or if it has a translation in that language
+            filter_query["$or"] = [
+                {"original_language": language},
+                {f"translations.{language}": {"$exists": True}}
+            ]
+            
+        if active_only:
+            filter_query["active"] = True
+            
+        if query:
+            # Search in canonical name and translations
+            regex_pattern = f".*{query}.*"
+            name_condition = {"name": {"$regex": regex_pattern, "$options": "i"}}
+            translation_conditions = []
+            
+            # If language is specified, only search translations for that language
+            if language:
+                translation_conditions.append({f"translations.{language}": {"$regex": regex_pattern, "$options": "i"}})
+            else:
+                # Otherwise, search all translations
+                translation_conditions.append({"translations": {"$regex": regex_pattern, "$options": "i"}})
+            
+            filter_query["$or"] = [name_condition, *translation_conditions]
+            
+        cursor = self.tags_collection.find(filter_query)
+        tags = await cursor.to_list(length=1000)
+        return tags
+    
+    async def add_tag_to_article(self, tag_id: str, article_id: str) -> bool:
+        """Add a tag to an article (stores only the tag ID, not the tag name)"""
+        # Convert tag_id to ObjectId if it's a string
+        tag_obj_id = ObjectId(tag_id) if isinstance(tag_id, str) else tag_id
+        
+        # Update article to add tag ID
+        article_result = await self.articles_collection.update_one(
+            {"_id": article_id},
+            {"$addToSet": {"tag_ids": str(tag_obj_id)}}
+        )
+        
+        # Update tag to increment article count
+        tag_result = await self.tags_collection.update_one(
+            {"_id": tag_obj_id},
+            {"$inc": {"article_count": 1}, "$set": {"updated_at": datetime.now()}}
+        )
+        
+        return article_result.modified_count > 0 and tag_result.modified_count > 0
+
+    async def remove_tag_from_article(self, tag_id: str, article_id: str) -> bool:
+        """Remove a tag from an article"""
+        # Convert tag_id to ObjectId if it's a string
+        tag_obj_id = ObjectId(tag_id) if isinstance(tag_id, str) else tag_id
+        
+        # Update article to remove tag ID
+        article_result = await self.articles_collection.update_one(
+            {"_id": article_id},
+            {"$pull": {"tag_ids": str(tag_obj_id)}}
+        )
+        
+        # Update tag to decrement article count
+        tag_result = await self.tags_collection.update_one(
+            {"_id": tag_obj_id},
+            {"$inc": {"article_count": -1}, "$set": {"updated_at": datetime.now()}}
+        )
+        
+        return article_result.modified_count > 0 and tag_result.modified_count > 0
+
+    async def update_article_tags(self, article_id: str, tag_ids: List[str]) -> bool:
+        """Update all tags for an article (storing only tag IDs)"""
+        # First remove article from all existing tags
+        article = await self.articles_collection.find_one({"_id": article_id})
+        if article and "tag_ids" in article:
+            for tag_id in article["tag_ids"]:
+                await self.tags_collection.update_one(
+                    {"_id": ObjectId(tag_id)},
+                    {"$inc": {"article_count": -1}, "$set": {"updated_at": datetime.now()}}
+                )
+        
+        # Ensure all tag_ids are strings
+        string_tag_ids = [str(tag_id) for tag_id in tag_ids]
+        
+        # Update article with new tag IDs
+        result = await self.articles_collection.update_one(
+            {"_id": article_id},
+            {"$set": {"tag_ids": string_tag_ids}}
+        )
+        
+        # Update article count for all new tags
+        for tag_id in tag_ids:
+            await self.tags_collection.update_one(
+                {"_id": ObjectId(tag_id) if isinstance(tag_id, str) else tag_id},
+                {"$inc": {"article_count": 1}, "$set": {"updated_at": datetime.now()}}
+            )
+        
+        return result.modified_count > 0
+
+    async def activate_tag(self, tag_id: str, active: bool = True) -> bool:
+        """Activate or deactivate a tag"""
+        try:
+            result = await self.tags_collection.update_one(
+                {"_id": ObjectId(tag_id)},
+                {"$set": {"active": active, "updated_at": datetime.now()}}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"Error activating tag: {str(e)}")
+            return False
+
+    async def delete_tag(self, tag_id: str) -> bool:
+        """Delete a tag and remove it from all articles"""
+        try:
+            # First find all articles that have this tag
+            tag_obj_id = ObjectId(tag_id)
+            query = {"tag_ids": str(tag_obj_id)}
+            articles = await self.articles_collection.find(query).to_list(length=1000)
+            
+            # Remove tag from all articles
+            for article in articles:
+                await self.articles_collection.update_one(
+                    {"_id": article["_id"]},
+                    {"$pull": {"tag_ids": str(tag_obj_id)}}
+                )
+            
+            # Delete the tag
+            result = await self.tags_collection.delete_one({"_id": tag_obj_id})
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Error deleting tag: {str(e)}")
+            return False
+
+    async def update_tag(self, tag_id: str, update_data: dict) -> bool:
+        """Update a tag with new data"""
+        try:
+            # Don't allow direct updates to article_count
+            if "article_count" in update_data:
+                del update_data["article_count"]
+                
+            # Add updated timestamp
+            update_data["updated_at"] = datetime.now()
+            
+            result = await self.tags_collection.update_one(
+                {"_id": ObjectId(tag_id)},
+                {"$set": update_data}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"Error updating tag: {str(e)}")
+            return False
+
+    async def get_tag_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about tags.
+        
+        Returns:
+            Dictionary with tag statistics
+        """
+        try:
+            # Get total count
+            total_count = await self.tags_collection.count_documents({})
+            
+            # Get count by original language
+            languages_cursor = self.tags_collection.aggregate([
+                {"$group": {"_id": "$original_language", "count": {"$sum": 1}}}
+            ])
+            languages = await languages_cursor.to_list(length=100)
+            
+            # Get count by active status
+            active_cursor = self.tags_collection.aggregate([
+                {"$group": {"_id": "$active", "count": {"$sum": 1}}}
+            ])
+            active = await active_cursor.to_list(length=100)
+            
+            # Get most used tags
+            popular_cursor = self.tags_collection.find().sort("article_count", -1).limit(10)
+            popular_tags = await popular_cursor.to_list(length=10)
+            
+            # Format results
+            stats = {
+                "total": total_count,
+                "by_language": {item["_id"]: item["count"] for item in languages},
+                "by_active": {str(item["_id"]): item["count"] for item in active},
+                "popular_tags": [{
+                    "id": str(tag["_id"]),
+                    "name": tag["name"],
+                    "count": tag["article_count"]
+                } for tag in popular_tags]
+            }
+            
+            return stats
+        except Exception as e:
+            logger.error(f"Error getting tag stats: {str(e)}")
+            return {"total": 0, "by_language": {}, "by_active": {}, "popular_tags": []}
 
 # Create a singleton instance
 db_service = DatabaseService()

@@ -12,8 +12,9 @@ import time
 import socket
 
 # Configuration
-API_PORT = 8001
-FRONTEND_PORT = 8080
+API_PORT = 8000
+FRONTEND_PORT = 5173
+MONGODB_PORT = 27017
 
 
 def is_port_in_use(port):
@@ -72,19 +73,24 @@ def main():
     """Main function to kill all server processes"""
     # Kill API server
     kill_server(API_PORT, "API server")
-    kill_server(9000, "API server (alternate)")
     
-    # Kill frontend server
-    kill_server(FRONTEND_PORT, "Frontend server")
+    # Kill frontend server - note that Vite uses hot reload
+    # so we may want to keep it running and just restart the API
+    if '--all' in sys.argv:
+        kill_server(FRONTEND_PORT, "Frontend server")
+    
+    # MongoDB server if running locally
+    if '--db' in sys.argv:
+        kill_server(MONGODB_PORT, "MongoDB server")
     
     print("\n" + "="*50)
     print("Start servers manually with these commands:")
     print("="*50)
     print("\nAPI Server:")
-    print(f"cd src/api && python -m uvicorn main:app --reload --port {API_PORT}")
+    print(f"cd src/api && uvicorn main:app --reload --port {API_PORT}")
     
     print("\nFrontend Server:")
-    print(f"cd src/frontend && python -m http.server {FRONTEND_PORT}")
+    print(f"cd src/frontend && npm run dev")
     
     print("\nAccess URLs:")
     print(f"API Documentation: http://localhost:{API_PORT}/docs")

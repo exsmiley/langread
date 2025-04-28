@@ -60,6 +60,7 @@ class ArticleContent(BaseModel):
     date_published: Optional[datetime] = None
     content: List[ContentSection]
     topics: List[str]
+    text: Optional[str] = None  # Added to store the full article text
 
 
 class GroupedArticleContent(BaseModel):

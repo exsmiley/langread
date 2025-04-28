@@ -9,6 +9,7 @@ requests>=2.31.0
 aiohttp>=3.8.5
 selenium>=4.16.0
 playwright>=1.40.0
+newspaper3k>=0.2.8    # Article content extraction
 
 # LLM Integration
 langchain>=0.1.0

@@ -184,6 +184,10 @@ const NAV_ITEMS: Array<NavItem> = [
     label: 'Flashcards',
     href: '/flashcards',
   },
+  {
+    label: 'Admin Tags',
+    href: '/admin/tags',
+  },
 ];
 
 export default Navbar;
