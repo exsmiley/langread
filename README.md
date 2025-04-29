@@ -1,10 +1,10 @@
-# LangRead
+# Lingogi
 
 A mobile-friendly web application for intermediate and advanced language learners who want to take their skills to the next level.
 
 ## Overview
 
-LangRead helps language learners improve their skills by reading authentic native-language content. The application initially targets Korean language learners who speak English as their primary language, with potential to expand to other language pairs in the future.
+Lingogi helps language learners improve their skills by reading authentic native-language content. The application initially targets Korean language learners who speak English as their primary language, with potential to expand to other language pairs in the future.
 
 ## Features
 
@@ -59,8 +59,8 @@ Clone the repository and set up your environment:
 
 ```bash
 # Clone the repository (if you haven't already)
-git clone https://github.com/exsmiley/langread.git
-cd langread
+git clone https://github.com/exsmiley/lingogi.git
+cd lingogi
 
 # Create and activate virtual environment
 python -m venv venv
@@ -104,6 +104,7 @@ npm run dev
 
 - **Frontend:** http://localhost:5173
 - **API Documentation:** http://localhost:8000/docs
+- **Mascot:** The Lingogi mascot is a cute meat character with a halo, playing on the Korean word "gogi" (meat) and "ring/ling"
 
 ### Stopping the Services
 
@@ -127,7 +128,7 @@ python scripts/kill_servers.py --db
 The system uses the following ports by default:
 
 - **Backend API:** 8000
-- **Frontend:** 5173
+- **Lingogi:** 5173
 - **MongoDB:** 27017 (if running locally)
 
 ### Hot Reload

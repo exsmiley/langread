@@ -1,6 +1,6 @@
-# LangRead Scripts
+# Lingogi Scripts
 
-This directory contains utility scripts for the LangRead language learning platform. These scripts help with various tasks including article fetching, content processing, database maintenance, and system management.
+This directory contains utility scripts for the Lingogi language learning platform. These scripts help with various tasks including article fetching, content processing, database maintenance, and system management.
 
 ## Running Scripts
 
@@ -21,8 +21,8 @@ python scripts/test_full_workflow.py
 
 | Script | Description |
 |--------|-------------|
-| `kill_servers.py` | Stops running LangRead services (API, frontend, database) |
-| `restart_servers.py` | Restarts LangRead services |
+| `kill_servers.py` | Stops running Lingogi services (API, frontend, database) |
+| `restart_servers.py` | Restarts Lingogi services |
 | `setup_env.py` | Sets up the environment for development |
 | `test_env_setup.py` | Tests if the environment is properly configured |
 | `run_tests.py` | Runs automated tests for the application |

@@ -64,8 +64,8 @@ logger.add("langread.log", rotation="10 MB", level="INFO")
 article_cache = ArticleCache()
 
 # Initialize the FastAPI app
-app = FastAPI(title="LangRead API", 
-             description="API for LangRead language learning application",
+app = FastAPI(title="Lingogi API", 
+             description="API for Lingogi language learning application",
              version="0.1.0")
 
 # Add custom encoder for MongoDB ObjectId
@@ -144,7 +144,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to the LangRead API",
+        "message": "Welcome to the Lingogi API",
         "status": "online",
         "documentation": "/docs"
     }

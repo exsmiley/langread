@@ -18,7 +18,7 @@ const Footer = () => {
         justify={{ base: 'center', md: 'space-between' }}
         align={{ base: 'center', md: 'center' }}
       >
-        <Text>© {new Date().getFullYear()} LangRead. All rights reserved</Text>
+        <Text>© {new Date().getFullYear()} Lingogi. All rights reserved</Text>
         <Stack direction={'row'} spacing={6}>
           <Link href={'#'}>Privacy</Link>
           <Link href={'#'}>Terms</Link>

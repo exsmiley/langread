@@ -1,6 +1,6 @@
-# LangRead: TODO List
+# Lingogi: TODO List
 
-This document tracks future improvements, fixes, and features planned for the LangRead application.
+This document tracks future improvements, fixes, and features planned for the Lingogi application.
 
 ## High Priority
 

@@ -168,7 +168,7 @@ const AdminDashboardPage: React.FC = () => {
       <VStack spacing={8} align="stretch">
         <Box>
           <Heading as="h1" size="xl">Admin Dashboard</Heading>
-          <Text color="gray.600">Manage LangRead system operations and view debugging information</Text>
+          <Text color="gray.600">Manage Lingogi system operations and view debugging information</Text>
         </Box>
 
         <Tabs variant="enclosed">

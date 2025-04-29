@@ -9,7 +9,8 @@ import {
   useDisclosure,
   IconButton,
   Collapse,
-  Link as ChakraLink
+  Link as ChakraLink,
+  Image
 } from '@chakra-ui/react';
 import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons';
 import { Link as RouterLink } from 'react-router-dom';
@@ -45,17 +46,20 @@ const Navbar = () => {
           />
         </Flex>
         <Flex flex={{ base: 1 }} justify={{ base: 'center', md: 'start' }}>
-          <Text
-            textAlign={useColorModeValue('left', 'center')}
-            fontFamily={'heading'}
-            color={useColorModeValue('gray.800', 'white')}
-            fontWeight="bold"
-            fontSize="xl"
-            as={RouterLink}
-            to="/"
-          >
-            LangRead
-          </Text>
+          <Flex align="center" as={RouterLink} to="/" _hover={{ textDecoration: 'none' }}>
+            <Box mr={2}>
+              <img src="/images/mascot.jpg" alt="Lingogi mascot" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+            </Box>
+            <Text
+              textAlign={useColorModeValue('left', 'center')}
+              fontFamily={'heading'}
+              color={useColorModeValue('gray.800', 'white')}
+              fontWeight="bold"
+              fontSize="xl"
+            >
+              Lingogi
+            </Text>
+          </Flex>
 
           <Flex display={{ base: 'none', md: 'flex' }} ml={10}>
             <DesktopNav />

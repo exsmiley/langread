@@ -1,5 +1,5 @@
 """
-Database services for LangRead application.
+Database services for Lingogi application.
 Provides functionality for storing and retrieving articles, vocabulary, and user data.
 """
 from typing import List, Dict, Any, Optional, Union
@@ -461,7 +461,7 @@ class DatabaseService:
         """
         Create a new tag with English as the canonical name and optional translations.
         
-        IMPORTANT TAG DESIGN NOTE: In LangRead, all tags are canonically stored in English, with translations
+        IMPORTANT TAG DESIGN NOTE: In Lingogi, all tags are canonically stored in English, with translations
         stored as metadata. This allows for consistent cross-language article categorization while
         enabling localized display in the user interface.
         

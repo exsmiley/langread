@@ -1,3 +1,3 @@
 """
-LangRead application for language learning
+Lingogi application for language learning
 """
