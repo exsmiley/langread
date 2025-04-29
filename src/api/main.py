@@ -507,6 +507,144 @@ async def translate_text(
         logger.error(f"Error translating text: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# Vocabulary translation model
+class VocabularyTranslationRequest(BaseModel):
+    text: str = Field(..., description="Word or phrase to translate")
+    context: str = Field("", description="Surrounding context where the word appears")
+    source_lang: str = Field(..., description="Source language code (e.g., 'ko')")
+    target_lang: str = Field("en", description="Target language code (e.g., 'en')")
+    definition_lang: str = Field(None, description="Language for definitions and examples (defaults to target_lang if not provided)")
+
+
+class VocabularyTranslationResponse(BaseModel):
+    word: str = Field(..., description="The original word or phrase")
+    translation: str = Field(..., description="The translated word or phrase")
+    part_of_speech: str = Field(..., description="Part of speech (noun, verb, etc.)")
+    definition: str = Field(..., description="Definition in the target language")
+    examples: List[str] = Field(default_factory=list, description="Example sentences in the source language")
+
+
+# Simple in-memory cache for vocabulary translations
+# In a production environment, consider using Redis or another distributed cache
+vocabulary_cache = {}
+
+
+# Context-aware vocabulary translation endpoint
+@app.post("/api/vocabulary/context-aware-translate", response_model=VocabularyTranslationResponse)
+async def translate_vocabulary_context_aware(
+    request: VocabularyTranslationRequest,
+    background_tasks: BackgroundTasks,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """
+    Translate a word or phrase with context awareness for language learning.
+    Returns detailed information including part of speech, definition, and example usage.
+    """    
+    # Create a cache key based on all relevant parameters
+    cache_key = f"{request.text}:{request.context[:50]}:{request.source_lang}:{request.target_lang}"
+    cache_key = hashlib.md5(cache_key.encode()).hexdigest()
+    
+    # Check if we have this translation in our cache
+    if cache_key in vocabulary_cache:
+        logger.info(f"Vocabulary cache hit for: {request.text}")
+        return vocabulary_cache[cache_key]
+    
+    # Check if we have it in the database (for persistent caching)
+    try:
+        # TODO: Implement database caching if needed
+        pass
+    except Exception as e:
+        logger.warning(f"Database check for translation failed: {str(e)}")
+    
+    # Not in cache, need to generate a new translation
+    try:
+        # Get OPENAI_API_KEY from environment
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
+            
+        # Get language name from code for better prompt
+        language_names = {
+            "en": "English",
+            "fr": "French",
+            "es": "Spanish",
+            "de": "German",
+            "ja": "Japanese",
+            "zh": "Chinese",
+            "ko": "Korean"
+        }
+        source_lang_name = language_names.get(request.source_lang, request.source_lang)
+        target_lang_name = language_names.get(request.target_lang, request.target_lang)
+        
+        # Determine the language for definitions and examples
+        definition_lang = request.definition_lang if request.definition_lang else request.target_lang
+        definition_lang_name = language_names.get(definition_lang, definition_lang)
+        
+        # Import the OpenAI client only when needed
+        from openai import OpenAI
+        client = OpenAI(api_key=openai_api_key)
+        
+        # Prepare the prompt for OpenAI
+        prompt = f"""
+        You are a professional translator with expertise in {source_lang_name} to {target_lang_name} translation.
+        
+        I need you to translate the {source_lang_name} word or phrase: "{request.text}"
+        {f'It appears in this context: "{request.context}"' if request.context else ''}
+        
+        Provide your response in the following JSON format only:
+        {{"word": "{request.text}",
+         "translation": "[translation in {target_lang_name}]",
+         "part_of_speech": "[noun/verb/adjective/adverb/etc.]",
+         "definition": "[brief definition in {definition_lang_name}]",
+         "examples": ["[example sentence in {source_lang_name}]"]}}  
+        
+        Guidelines:
+        1. Provide the base, non-conjugated form for verbs if applicable
+        2. Provide a clear, concise definition IN {definition_lang_name}
+        3. If the text is a phrase or sentence, translate it appropriately
+        4. Create one or two SIMPLE example sentences that use the word/phrase naturally
+        5. Example sentences should be short, clear and helpful for language learners - NOT excerpts from the provided context
+        6. Use beginner to intermediate level vocabulary and grammar in your examples
+        7. RESPOND ONLY WITH THE JSON, no additional text
+        """
+
+        # Make the request to OpenAI
+        response = client.chat.completions.create(
+            model="gpt-4-turbo",  # Use an appropriate model 
+            messages=[
+                {"role": "system", "content": "You are a professional translator API that only responds with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,  # Lower temperature for more consistent responses
+            response_format={"type": "json_object"}
+        )
+
+        # Extract the response
+        response_content = response.choices[0].message.content
+        translation_data = json.loads(response_content)
+        
+        # Create the response
+        translation_response = VocabularyTranslationResponse(
+            word=translation_data["word"],
+            translation=translation_data["translation"],
+            part_of_speech=translation_data["part_of_speech"],
+            definition=translation_data["definition"],
+            examples=translation_data["examples"]
+        )
+        
+        # Cache the result
+        vocabulary_cache[cache_key] = translation_response
+        
+        # In the background, store this translation in the database for persistent caching
+        # background_tasks.add_task(store_translation_in_db, request, translation_response, db)
+        
+        return translation_response
+        
+    except Exception as e:
+        logger.error(f"Error translating vocabulary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
+
 # Quiz generation endpoint
 @app.post("/generate-quiz")
 async def generate_quiz(

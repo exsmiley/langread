@@ -2,6 +2,7 @@ import React from 'react';
 import { ChakraProvider, Box, theme } from '@chakra-ui/react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 // Import pages
 import HomePage from './pages/HomePage';
@@ -23,8 +24,9 @@ function App() {
   return (
     <ChakraProvider theme={theme}>
       <QueryClientProvider client={queryClient}>
-        <Router>
-          <Box minH="100vh" display="flex" flexDirection="column">
+        <LanguageProvider>
+          <Router>
+            <Box minH="100vh" display="flex" flexDirection="column">
             <Navbar />
             <Box flex="1" p={4}>
               <ErrorBoundary>
@@ -39,8 +41,9 @@ function App() {
               </ErrorBoundary>
             </Box>
             <Footer />
-          </Box>
-        </Router>
+            </Box>
+          </Router>
+        </LanguageProvider>
       </QueryClientProvider>
     </ChakraProvider>
   );
