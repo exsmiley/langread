@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, FormEvent, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, FormEvent, ChangeEvent } from 'react';
 import {
   Box,
   Container,
@@ -98,38 +98,152 @@ const getArticleDescription = (article: Article | any): string => {
 };
 
 const getArticleSource = (article: Article | any): string => {
-  return article?.source || 'Unknown Source';
+  // If no source, return unknown
+  if (!article?.source) return 'Unknown Source';
+  
+  const source = article.source;
+  
+  // Filter out generic feed URLs
+  if (source.includes('feeds.feedburner.com') || source === 'feeds') {
+    // Try to get publication info from the article
+    if (article.publication) return article.publication;
+    if (article.publisher) return article.publisher;
+    
+    // For Korean news articles, use a better generic source label
+    return article.language === 'ko' ? '한국 뉴스' : 'News Source';
+  }
+  
+  // Extract domain name from URLs
+  if (source.startsWith('http')) {
+    try {
+      const url = new URL(source);
+      // Remove common prefixes like 'www.' and extract the domain name
+      return url.hostname.replace(/^www\./, '');
+    } catch {
+      // If URL parsing fails, use the original source
+      return source;
+    }
+  }
+  
+  return source;
 };
 
 const getArticleDate = (article: Article | any): string => {
   return article?.date_published || new Date().toISOString();
 };
 
-const getArticleTopics = (article: Article | any): string[] => {
-  return Array.isArray(article?.topics) ? article.topics : [];
+// This function needs to be defined inside the component to access state variables
+function getArticleTopicsFactory(availableTags: Tag[], nativeLanguage: string) {
+  // List of tag names to filter out (case insensitive)
+  const filteredOutTags = ['rss', 'ko', 'en', 'es', 'fr', 'de', 'ja', 'zh'];
+  
+  return (article: Article | any): string[] => {
+    let result: string[] = [];
+    
+    // If the article has tags, use those
+if (Array.isArray(article?.tag_ids) && article.tag_ids.length > 0 && availableTags.length > 0) {
+      result = article.tag_ids
+        .map((tagId: string) => {
+          // Find the tag object that matches this ID
+          const tag = availableTags.find(t => t._id === tagId);
+          if (!tag) return null;
+          
+          // Get the display name in user's native language or fallback to English
+          if (tag.translations && tag.translations[nativeLanguage]) {
+            return tag.translations[nativeLanguage];
+          }
+          // Fallback to the canonical name
+          return tag.name;
+        })
+        .filter(Boolean) as string[]; // Remove nulls
+    }
+    
+    // Filter out unwanted tags
+    if (result.length > 0) {
+      return result.filter(
+        tag => !filteredOutTags.includes(tag.toLowerCase())
+      );
+    }
+    
+    return [];
+  };
 };
 
+// Function to be defined inside the component
+// DO NOT define getArticleTopics here - we'll use getArticleTopicsFn inside the component
+
 const getArticleImageUrl = (article: Article | any): string => {
-  // If article already has an image_url, use it
+  // If article already has an image_url, use it (unless it's an expired DALL-E URL)
   if (article?.image_url) {
-    return article.image_url;
+    const imageUrl = article.image_url;
+    
+    // Check if it's likely a DALL-E URL (which might be expired)
+    if (imageUrl.startsWith('https://oaidalleapiprodscus.blob.core.windows.net')) {
+      // Skip expired DALL-E URLs and use our fallbacks instead
+      console.log('Potential expired DALL-E URL detected, using fallback');
+    } else {
+      return imageUrl;
+    }
   }
-  
-  // If content is an array of sections, try to find an image section
+
+  // If article has an image section in content, use that
   if (Array.isArray(article?.content)) {
     const imageSection = article.content.find((section: any) => section.type === 'image');
     if (imageSection?.content) {
       return imageSection.content;
     }
   }
+
+  // Use high-quality defaults based on language and topics
+  // These are beautiful, topic-specific images that work well as article covers
+  const language = article?.language || 'en';
+  const topics = Array.isArray(article?.topics) ? article.topics : [];
+  const tagIds = Array.isArray(article?.tag_ids) ? article.tag_ids : [];
   
-  // Default fallback images by language
-  const defaultImages = {
-    ko: 'https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7',
-    en: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5'
+  // Get a deterministic but seemingly random image based on article ID
+  // This ensures the same article always gets the same image but different articles get different images
+  const getConsistentRandomValue = (max: number, seed: string) => {
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0; // Convert to 32bit integer
+    }
+    // Get a value between 0 and max-1
+    return Math.abs(hash) % max;
   };
   
-  return defaultImages[article?.language as keyof typeof defaultImages] || defaultImages.en;
+  // Korean-specific high quality images for various topics
+  const koreanImages = [
+    'https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7', // Seoul skyline
+    'https://images.unsplash.com/photo-1538485399081-7c8ed8f9fbfe', // Korean street
+    'https://images.unsplash.com/photo-1585023523603-be7898ba6aac', // Korean palace
+    'https://images.unsplash.com/photo-1548115184-bc6544d06a58', // Korean technology
+    'https://images.unsplash.com/photo-1546874177-9e664107314e', // Korean business district
+    'https://images.unsplash.com/photo-1588411393236-d2524cca2710', // Korean market
+    'https://images.unsplash.com/photo-1605538795375-22e881db42fd', // Korean cafe
+    'https://images.unsplash.com/photo-1599624927761-8fe85504ec77'  // Korean garden
+  ];
+  
+  // Default images for other languages
+  const defaultImages = {
+    en: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5',
+    es: 'https://images.unsplash.com/photo-1503152394-c571994fd383',
+    fr: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
+    de: 'https://images.unsplash.com/photo-1560969184-10fe8719e047',
+    ja: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e',
+    zh: 'https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b'
+  };
+  
+  if (language === 'ko') {
+    // For Korean articles, use our specially curated Korean images
+    const seed = article?._id || article?.title || 'default';
+    const imageIndex = getConsistentRandomValue(koreanImages.length, seed);
+    return koreanImages[imageIndex];
+  }
+  
+  // For other languages, use the default image for that language
+  return defaultImages[language as keyof typeof defaultImages] || defaultImages.en;
 };
 
 const getArticleContent = (article: Article | any): string => {
@@ -162,6 +276,7 @@ const ArticleListPage: React.FC = () => {
   const [nativeLanguage, setNativeLanguage] = useState(() => {
     return searchParams.get('native') || 'en';
   });
+  const nativeLanguageRef = useRef(nativeLanguage);
   const [targetLanguage, setTargetLanguage] = useState(() => {
     return searchParams.get('target') || 'ko';
   });
@@ -197,20 +312,37 @@ const ArticleListPage: React.FC = () => {
     { value: 'ru', label: 'Russian' }
   ];
   
+  // Initial helper function to extract topics from articles
+  const extractArticleTopics = useCallback((article: Article | any): string[] => {
+    // Default implementation
+    if (Array.isArray(article?.topics)) return article.topics;
+    return [];
+  }, []);
+  
+  // Create the actual getArticleTopics function with access to state
+  const [getArticleTopicsFn, setGetArticleTopicsFn] = useState<(article: Article | any) => string[]>(extractArticleTopics);
+  
+  // Update the getArticleTopics function when tags or language change
+  useEffect(() => {
+    nativeLanguageRef.current = nativeLanguage;
+    const topicsFn = getArticleTopicsFactory(availableTags, nativeLanguage);
+    setGetArticleTopicsFn(() => topicsFn);
+  }, [availableTags, nativeLanguage]);
+  
   // Safe filter function for articles
   const safeFilterArticles = useCallback((articleList: Article[], tagFilter: string[]) => {
     if (!Array.isArray(articleList)) return [];
     try {
       return articleList.filter(article => {
         if (tagFilter.length === 0) return true;
-        const articleTopics = getArticleTopics(article);
+        const articleTopics = getArticleTopicsFn(article);
         return articleTopics.some(topic => tagFilter.includes(topic));
       });
     } catch (e) {
       console.error('Error filtering articles:', e);
       return [];
     }
-  }, []);
+  }, [getArticleTopicsFn]);
 
   // Safe filter function to ensure we have valid article data
   const memoizedSafeFilterArticles = useMemo(() => safeFilterArticles, [safeFilterArticles]);
@@ -462,7 +594,9 @@ const ArticleListPage: React.FC = () => {
         const requestBody: Record<string, any> = {
           language: targetLanguage,
           group_and_rewrite: true,
-          difficulty: difficulty || 'intermediate' // Default to intermediate if not specified
+          difficulty: difficulty || 'intermediate', // Default to intermediate if not specified
+          query: selectedTagIds.length > 0 ? selectedTagIds.join(',') : targetLanguage, // Required query parameter
+          max_sources: 10 // Use 10 max sources
         };
         
         // Include selected tags if any
@@ -471,7 +605,8 @@ const ArticleListPage: React.FC = () => {
         }
         
         console.log('Fetching articles from API:', requestBody);
-        const response = await api.post('/api/articles', requestBody);
+        // Use the new simplified endpoint that directly returns articles from the database
+        const response = await api.post('/api/articles-simple', requestBody);
         previousFetchParamsRef.current = currentFetchParams;
         
         if (response.data && response.data.articles && Array.isArray(response.data.articles)) {
@@ -719,9 +854,10 @@ const ArticleListPage: React.FC = () => {
                         {new Date(getArticleDate(article)).toLocaleDateString()}
                       </Text>
                     </Flex>
-                    {getArticleTopics(article).length > 0 && (
+                    {/* Display article tags but filter out unwanted ones */}
+                    {getArticleTopicsFn(article).length > 0 && (
                       <HStack mt={3} spacing={2} flexWrap="wrap">
-                        {getArticleTopics(article).slice(0, 3).map((topic, i) => (
+                        {getArticleTopicsFn(article).slice(0, 3).map((topic: string, i: number) => (
                           <Badge key={`${topic}-${i}`} colorScheme="blue" fontSize="xs">
                             {topic}
                           </Badge>

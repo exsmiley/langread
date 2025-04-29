@@ -1,7 +1,9 @@
 from typing import List, Dict, Optional, Union, Literal, Any
 from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Depends, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from bson import ObjectId
 from loguru import logger
 from datetime import datetime
 import json
@@ -31,6 +33,9 @@ from src.utils.tag_generator import tag_generator
 # Import tag routes
 from src.api.tag_routes import router as tag_router, get_tag_stats
 from pathlib import Path
+
+# Import custom JSON encoder for MongoDB ObjectId
+from src.api.utils.encoders import MongoJSONEncoder, jsonable_encoder_with_objectid
 
 # Add the necessary directories to sys.path
 
@@ -62,6 +67,28 @@ article_cache = ArticleCache()
 app = FastAPI(title="LangRead API", 
              description="API for LangRead language learning application",
              version="0.1.0")
+
+# Add custom encoder for MongoDB ObjectId
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
+
+# Add custom JSON response class
+class CustomJSONResponse(JSONResponse):
+    def render(self, content):
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            cls=MongoJSONEncoder,
+        ).encode("utf-8")
+
+app.json_response_class = CustomJSONResponse
 
 # Initialize the database service
 db_service = DatabaseService()
@@ -142,6 +169,172 @@ class RewriteRequest(BaseModel):
     language: str = "ko"  # Target language for the rewritten content
     target_difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"  # Difficulty level
     max_sources: int = 5  # Maximum number of sources to use
+
+# Simple Article List Model
+class SimpleArticleRequest(BaseModel):
+    language: str = "ko"  # Default to Korean
+    difficulty: str = "intermediate"  # Default difficulty level
+    query: str = ""  # Optional search query
+    tag_ids: Optional[List[str]] = None  # Optional tag_ids to filter by
+    max_sources: int = 10  # Default max sources
+    group_and_rewrite: bool = True  # Whether to group articles
+
+# Endpoint to get a quiz for an article
+@app.get("/api/quizzes/{article_id}")
+async def get_quiz_by_article_id(
+    article_id: str,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """Get a quiz for a specific article"""
+    try:
+        # Find the article first to ensure it exists
+        article = await db.articles_collection.find_one({"_id": article_id})
+        
+        if not article:
+            return JSONResponse(
+                status_code=404,
+                content={"detail": f"Article with ID {article_id} not found"}
+            )
+        
+        # For now, return a mock quiz - in a real app, this would generate or retrieve a stored quiz
+        mock_quiz = {
+            "questions": [
+                {
+                    "id": "q1",
+                    "question": "이 글의 주요 주제는 무엇인가요?",
+                    "options": [
+                        "경제 발전",
+                        "기술 혁신",
+                        "정치 변화",
+                        "환경 문제"
+                    ],
+                    "correct_answer": "기술 혁신",
+                    "evidence": "글의 전체적인 내용이 기술 혁신에 중점을 두고 있습니다."
+                },
+                {
+                    "id": "q2",
+                    "question": "기사에서 언급된 주요 단체나 기관은?",
+                    "options": [
+                        "삼성전자",
+                        "현대자동차",
+                        "한국과학기술원",
+                        "네이버"
+                    ],
+                    "correct_answer": "한국과학기술원",
+                    "evidence": "기사 내용 중 한국과학기술원의 연구 결과가 인용되었습니다."
+                },
+                {
+                    "id": "q3",
+                    "question": "이 기사는 어떤 관점에서 쓰여졌나요?",
+                    "options": [
+                        "비판적 관점",
+                        "중립적 관점",
+                        "긍정적 관점",
+                        "역사적 관점"
+                    ],
+                    "correct_answer": "중립적 관점",
+                    "evidence": "기사는 다양한 견해를 균형있게 다루고 있습니다."
+                }
+            ]
+        }
+        
+        return mock_quiz
+        
+    except Exception as e:
+        logger.error(f"Error getting quiz for article {article_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Error retrieving quiz: {str(e)}"}
+        )
+
+# Endpoint to get a single article by ID
+@app.get("/api/articles/{article_id}")
+async def get_article_by_id(
+    article_id: str,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """Get a single article by its ID"""
+    try:
+        # Find the article by ID
+        article = await db.articles_collection.find_one({"_id": article_id})
+        
+        if not article:
+            # If article not found, return 404
+            return JSONResponse(
+                status_code=404,
+                content={"detail": f"Article with ID {article_id} not found"}
+            )
+        
+        # Convert article to dict for serialization
+        article_dict = dict(article)
+        
+        # Convert ObjectId fields to strings
+        if "_id" in article_dict:
+            article_dict["_id"] = str(article_dict["_id"])
+            
+        # Convert tag_ids to strings
+        if "tag_ids" in article_dict and article_dict["tag_ids"]:
+            article_dict["tag_ids"] = [str(tag_id) for tag_id in article_dict["tag_ids"]]
+            
+        return article_dict
+        
+    except Exception as e:
+        logger.error(f"Error getting article {article_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Error retrieving article: {str(e)}"}
+        )
+
+# Simple articles endpoint that returns articles directly from database
+@app.post("/api/articles-simple")
+async def get_articles_simple(
+    request: SimpleArticleRequest,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """Get articles directly from the database with simple filtering"""
+    try:
+        # Build the query filter
+        query_filter = {"language": request.language}
+        
+        # Add difficulty filter if specified
+        if request.difficulty:
+            query_filter["difficulty"] = request.difficulty
+        
+        # Add tag_ids filter if specified
+        if request.tag_ids and len(request.tag_ids) > 0:
+            # Convert string IDs to ObjectId
+            object_ids = [ObjectId(tag_id) for tag_id in request.tag_ids if tag_id]
+            if object_ids:
+                query_filter["tag_ids"] = {"$in": object_ids}
+                
+        # Fetch articles from database
+        cursor = db.articles_collection.find(query_filter).limit(50)
+        articles = await cursor.to_list(length=50)
+        
+        # Convert ObjectId to strings for JSON serialization
+        serialized_articles = []
+        for article in articles:
+            article_dict = dict(article)
+            
+            # Convert _id to string
+            if "_id" in article_dict:
+                article_dict["_id"] = str(article_dict["_id"])
+                
+            # Convert tag_ids to strings
+            if "tag_ids" in article_dict and article_dict["tag_ids"]:
+                article_dict["tag_ids"] = [str(tag_id) for tag_id in article_dict["tag_ids"]]
+                
+            serialized_articles.append(article_dict)
+            
+        # Return the serialized articles
+        return {"articles": serialized_articles, "count": len(serialized_articles)}
+        
+    except Exception as e:
+        logger.error(f"Error in get_articles_simple: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Error retrieving articles: {str(e)}"}
+        )
 
 # Articles endpoint
 @app.post("/articles")
@@ -1124,28 +1317,33 @@ async def get_articles_frontend(
         if tag_ids and len(tag_ids) > 0:
             query["tag_ids"] = {"$in": tag_ids}
             
-        # Get rewritten articles with the specified difficulty
-        rewritten_articles = await db.articles_collection.find({
+        # Get articles with the specified difficulty, not limited to rewritten content
+        articles_query = {
             **query,
-            "content_type": "rewritten",
             "difficulty": difficulty
-        }).limit(20).to_list(length=20)
+        }
+        
+        # Log the query to help with debugging
+        logger.info(f"Fetching articles with query: {articles_query}")
+        
+        articles = await db.articles_collection.find(articles_query).limit(20).to_list(length=20)
         
         # Convert ObjectId to string for JSON serialization
-        for article in rewritten_articles:
+        for article in articles:
             if '_id' in article and not isinstance(article['_id'], str):
                 article['_id'] = str(article['_id'])
         
-        if rewritten_articles:
+        if articles:
             return {
-                "articles": rewritten_articles,
-                "count": len(rewritten_articles),
+                "articles": articles,
+                "count": len(articles),
                 "language": language,
                 "difficulty": difficulty,
                 "source": "database"
             }
         else:
-            # No articles found
+            # No articles found, log the issue
+            logger.warning(f"No articles found for query: {articles_query}")
             return {
                 "articles": [],
                 "count": 0,
