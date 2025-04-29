@@ -3,14 +3,16 @@
 Check article data to inspect tags and source information
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import os
 import sys
 from dotenv import load_dotenv
 from pprint import pprint
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.models.database import DatabaseService
 

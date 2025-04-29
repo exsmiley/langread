@@ -4,6 +4,10 @@ Script to update all tags with translations in all supported languages.
 This ensures consistent tag display across different language settings.
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import os
 import asyncio
 import json
@@ -16,8 +20,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from loguru import logger
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 # Load environment variables
 load_dotenv()

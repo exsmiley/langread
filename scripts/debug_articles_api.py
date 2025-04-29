@@ -3,6 +3,10 @@
 Debug the articles API to identify and fix the error
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import os
 import sys
@@ -11,8 +15,6 @@ import traceback
 from pprint import pprint
 from dotenv import load_dotenv
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.models.database import DatabaseService
 from src.api.routers.article_utils import fetch_articles_with_filters

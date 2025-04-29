@@ -3,6 +3,10 @@
 Script to create initial tags for the LangRead application.
 This will create language learning related tags with proper translations.
 """
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import sys
 import os

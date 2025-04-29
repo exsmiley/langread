@@ -4,6 +4,10 @@
 Script to trigger the article rewriting process for a specific article.
 This will help debug if the rewriting functionality is working correctly.
 """
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import sys
 import os
 import asyncio

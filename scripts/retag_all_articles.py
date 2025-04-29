@@ -5,6 +5,10 @@ This will process each article through the tag generator and
 assign appropriate tags based on the article content.
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import os
 import asyncio
 import sys
@@ -18,8 +22,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from loguru import logger
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 # Import local modules
 from utils.tag_generator import TagGenerator

@@ -2,6 +2,10 @@
 """
 Script to create sample tags in the LangRead database
 """
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 from src.models.database import DatabaseService
 import asyncio
 

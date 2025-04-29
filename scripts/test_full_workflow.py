@@ -5,6 +5,10 @@ This script:
 2. Groups related articles 
 3. Rewrites them with LLM into educational content for language learners
 """
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import os
 import json

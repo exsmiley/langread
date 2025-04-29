@@ -10,6 +10,10 @@ This script:
 5. Updates the database with local file paths
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import os
 import sys
@@ -28,8 +32,6 @@ from openai import OpenAI
 from loguru import logger
 import httpx
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.models.database import DatabaseService
 

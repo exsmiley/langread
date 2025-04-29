@@ -7,6 +7,10 @@ This script will:
 3. Find corresponding rewritten versions
 4. Print results
 """
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import sys
 import os
 import asyncio

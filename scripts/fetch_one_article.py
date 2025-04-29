@@ -1,3 +1,7 @@
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import sys
 import os

@@ -9,6 +9,10 @@ This script:
 4. Updates articles in the database with the assessed difficulty
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import os
 import sys
 import json
@@ -20,8 +24,6 @@ from openai import OpenAI
 from dotenv import load_dotenv
 from loguru import logger
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.models.database import DatabaseService
 

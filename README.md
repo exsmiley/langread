@@ -6,6 +6,42 @@ A mobile-friendly web application for intermediate and advanced language learner
 
 LangRead helps language learners improve their skills by reading authentic native-language content. The application initially targets Korean language learners who speak English as their primary language, with potential to expand to other language pairs in the future.
 
+## Features
+
+### Completed Features
+
+#### Article Aggregation Service
+- RSS feed-based article discovery for both Korean and English content
+- Robust content extraction using newspaper3k library
+- LLM-based topic extraction and language detection
+- Article grouping at similar difficulty levels
+- Content rewriting at different proficiency levels (beginner, intermediate, advanced)
+
+#### Reading Enhancement Tools
+- Context-aware vocabulary translation using OpenAI
+- Language preference system with persistent settings
+- Ability to view definitions in native or target language
+- Interactive UI with translation popups
+- Simple example sentences for vocabulary practice
+
+#### Comprehension Testing
+- Auto-generated quizzes based on article content
+- Multiple choice and short answer question formats
+- Difficulty adaptation based on article content
+
+#### Vocabulary Management
+- Ability to save words to personal vocabulary list
+- Translation and definition storage
+- Language preference customization
+
+### Coming Soon
+- Improved caching with Redis for translations
+- User accounts and progress tracking
+- Advanced spaced repetition for vocabulary review
+- More language pair support
+
+See [TODO.md](./TODO.md) for a complete list of planned features and improvements.
+
 ## Quick Start Guide
 
 ### Prerequisites
@@ -75,13 +111,13 @@ You can use the provided script to stop running services:
 
 ```bash
 # Stop API server only
-python kill_servers.py
+python scripts/kill_servers.py
 
 # Stop all services including frontend (if needed)
-python kill_servers.py --all
+python scripts/kill_servers.py --all
 
 # Stop database services (if running locally)
-python kill_servers.py --db
+python scripts/kill_servers.py --db
 ```
 
 ## Development Workflow
@@ -99,6 +135,34 @@ The system uses the following ports by default:
 - Both the backend and frontend servers support hot reloading for development.
 - The backend uses Uvicorn's `--reload` flag to watch for changes.
 - The frontend uses Vite's built-in hot module replacement.
+
+## System Architecture
+
+### Frontend
+- React with TypeScript
+- Chakra UI for responsive design
+- React Router for navigation
+- Context API for state management (including language preferences)
+
+### Backend
+- FastAPI for API endpoints
+- OpenAI integration for translations and content processing
+- MongoDB for data persistence
+- In-memory caching (Redis planned for future)
+
+### NLP Processing
+- Article extraction and preprocessing
+- Context-aware vocabulary translation
+- Quiz generation from article content
+- Content difficulty analysis
+
+## Contributing
+
+Contributions are welcome! Please see our [TODO.md](./TODO.md) file for areas where help is needed.
+
+## License
+
+This project is available for educational and personal use.
 
 ### Component Overview
 

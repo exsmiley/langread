@@ -8,6 +8,10 @@ This script:
 3. Updates the database with local file paths
 """
 
+from path_helper import setup_path
+# Add project root to Python path
+setup_path()
+
 import asyncio
 import os
 import sys
@@ -21,8 +25,6 @@ from dotenv import load_dotenv
 import httpx
 from loguru import logger
 
-# Add src directory to Python path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.models.database import DatabaseService
 
