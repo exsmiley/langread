@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to merge duplicate tags in the LangRead database.
+Script to merge duplicate tags in the Lingogi database.
 This will identify tags with the same meaning but different IDs
 and consolidate them into a single canonical tag.
 """
@@ -183,7 +183,7 @@ def merge_all_duplicate_tags():
 def main():
     """Main function to run the tag merging process"""
     print("=" * 60)
-    print("LangRead Tag Merger")
+    print("Lingogi Tag Merger")
     print("=" * 60)
     
     # Show duplicates first

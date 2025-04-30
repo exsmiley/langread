@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple script to kill all LangRead server processes.
+Simple script to kill all Lingogi server processes.
 This will terminate any processes running on the API port (8001) and frontend port (8080).
 """
 

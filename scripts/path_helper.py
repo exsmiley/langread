@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helper module to handle path resolution for LangRead scripts.
+Helper module to handle path resolution for Lingogi scripts.
 This ensures scripts can be run from any directory and still find their required modules.
 """
 

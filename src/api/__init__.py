@@ -1,3 +1,3 @@
 """
-API module for LangRead application
+API module for Lingogi application
 """

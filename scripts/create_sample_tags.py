@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to create sample tags in the LangRead database
+Script to create sample tags in the Lingogi database
 """
 from path_helper import setup_path
 # Add project root to Python path

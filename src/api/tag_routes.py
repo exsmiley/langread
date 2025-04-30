@@ -196,3 +196,34 @@ async def update_article_tags(
         raise HTTPException(status_code=500, detail="Failed to update article tags")
     
     return {"message": "Article tags updated successfully"}
+
+class TagLookupRequest(BaseModel):
+    """Model for looking up tags by ID"""
+    tag_ids: List[str]
+
+@router.post("/lookup")
+async def lookup_tags(
+    request: TagLookupRequest,
+    db: DatabaseService = Depends(get_database_service)
+):
+    """
+    Look up multiple tags by their IDs.
+    Returns tag details for each valid ID in the order they were requested.
+    """
+    result = []
+    for tag_id in request.tag_ids:
+        try:
+            tag = await db.get_tag(tag_id)
+            if tag:
+                # Convert ObjectId to string for JSON serialization
+                if not isinstance(tag.get('_id'), str):
+                    tag['_id'] = str(tag['_id'])
+                result.append(tag)
+            else:
+                # Include a placeholder for missing tags to maintain order
+                result.append({"_id": tag_id, "name": f"Unknown Tag", "missing": True})
+        except Exception as e:
+            # Include error information but don't fail the whole request
+            result.append({"_id": tag_id, "error": str(e), "missing": True})
+    
+    return {"tags": result}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Test script to verify that the .env file is properly configured 
-for the LangRead application. Also tests if the OpenAI API key works correctly.
+for the Lingogi application. Also tests if the OpenAI API key works correctly.
 """
 import os
 import sys
@@ -144,7 +144,7 @@ def test_env_file():
     print("\n" + "=" * 50)
     if all_passed:
         print("✅ SUCCESS: All environment variables are properly configured and the OpenAI API key is working!")
-        print("You're ready to run the LangRead application.")
+        print("You're ready to run the Lingogi application.")
     else:
         print("❌ WARNING: There are issues with your configuration.")
         print("Please check the errors above and update your settings.")

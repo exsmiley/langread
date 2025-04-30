@@ -1,3 +1,3 @@
 """
-Tests for LangRead application
+Tests for Lingogi application
 """

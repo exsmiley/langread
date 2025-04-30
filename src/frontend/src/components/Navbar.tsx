@@ -48,7 +48,7 @@ const Navbar = () => {
         <Flex flex={{ base: 1 }} justify={{ base: 'center', md: 'start' }}>
           <Flex align="center" as={RouterLink} to="/" _hover={{ textDecoration: 'none' }}>
             <Box mr={2}>
-              <img src="/images/mascot.jpg" alt="Lingogi mascot" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
+              <img src="/images/mascot.png" alt="Lingogi mascot" style={{ width: '30px', height: '30px', borderRadius: '50%' }} />
             </Box>
             <Text
               textAlign={useColorModeValue('left', 'center')}

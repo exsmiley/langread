@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to debug tag counts and article retrieval issues in LangRead.
+Script to debug tag counts and article retrieval issues in Lingogi.
 This will:
 1. Verify the actual number of articles per tag vs. stored tag.article_count
 2. Check why technology articles aren't being retrieved when the tag is selected
@@ -168,7 +168,7 @@ def recalculate_tag_counts():
 def main():
     """Main function to run all diagnostics"""
     print("=" * 60)
-    print("LangRead Tag System Diagnostic")
+    print("Lingogi Tag System Diagnostic")
     print("=" * 60)
     
     # Run diagnostics

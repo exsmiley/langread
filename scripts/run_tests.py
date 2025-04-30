@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Test runner script for LangRead application.
+Test runner script for Lingogi application.
 Run this script to execute unit and integration tests.
 """
 import os
@@ -79,7 +79,7 @@ def run_tests(args):
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Run tests for LangRead application.")
+    parser = argparse.ArgumentParser(description="Run tests for Lingogi application.")
     parser.add_argument("--unit-only", action="store_true", help="Run only unit tests")
     parser.add_argument("--integration-only", action="store_true", help="Run only integration tests")
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
@@ -89,7 +89,7 @@ def main():
     args = parser.parse_args()
     
     print("=" * 80)
-    print("LangRead Test Runner")
+    print("Lingogi Test Runner")
     print("=" * 80)
     
     # Check dependencies and environment

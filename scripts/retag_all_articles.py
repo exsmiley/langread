@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to re-tag all existing articles in the LangRead database.
+Script to re-tag all existing articles in the Lingogi database.
 This will process each article through the tag generator and 
 assign appropriate tags based on the article content.
 """

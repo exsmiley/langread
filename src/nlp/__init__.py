@@ -1,3 +1,3 @@
 """
-Natural Language Processing modules for LangRead language learning application
+Natural Language Processing modules for Lingogi language learning application
 """

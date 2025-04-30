@@ -20,10 +20,10 @@ const Footer = () => {
       >
         <Text>© {new Date().getFullYear()} Lingogi. All rights reserved</Text>
         <Stack direction={'row'} spacing={6}>
-          <Link href={'#'}>Privacy</Link>
-          <Link href={'#'}>Terms</Link>
-          <Link href={'#'}>About</Link>
-          <Link href={'#'}>Contact</Link>
+          <Link href={'/privacy'}>Privacy</Link>
+          <Link href={'/terms'}>Terms</Link>
+          <Link href={'/about'}>About</Link>
+          <Link href={'/contact'}>Contact</Link>
         </Stack>
       </Container>
     </Box>

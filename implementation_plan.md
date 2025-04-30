@@ -1,7 +1,7 @@
-# LangRead Implementation Plan: Tag-Based Article System
+# Lingogi Implementation Plan: Tag-Based Article System
 
 ## Overview
-This document outlines the plan for redesigning LangRead's article processing and organization system, shifting from article grouping to a tag-based approach.
+This document outlines the plan for redesigning Lingogi's article processing and organization system, shifting from article grouping to a tag-based approach.
 
 ## Phase 1: Database Schema Updates
 

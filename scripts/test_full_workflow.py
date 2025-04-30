@@ -30,7 +30,7 @@ async def test_workflow():
         return
     
     print("=" * 80)
-    print("LangRead Content Workflow Test")
+    print("Lingogi Content Workflow Test")
     print("=" * 80)
     
     # Initialize the content agent

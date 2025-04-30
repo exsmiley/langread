@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Article Image Generator for LangRead
+Article Image Generator for Lingogi
 
 This script:
 1. Finds articles without images

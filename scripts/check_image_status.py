@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check the status of article images in the LangRead database
+Check the status of article images in the Lingogi database
 """
 
 from path_helper import setup_path

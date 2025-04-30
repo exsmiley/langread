@@ -196,7 +196,7 @@ class ArticleImageUpdater:
             readme_path = os.path.join(image_dir, "README.md")
             with open(readme_path, "w") as f:
                 f.write("# Article Images\n\n")
-                f.write("This directory contains images for articles in LangRead.\n\n")
+                f.write("This directory contains images for articles in Lingogi.\n\n")
                 f.write("## Structure\n\n")
                 f.write("- `/topics/` - Topic-specific images (technology, business, etc.)\n")
                 f.write("- `/defaults/` - Default images for articles without specific topics\n")

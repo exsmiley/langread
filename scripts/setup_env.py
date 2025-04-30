@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Setup environment configuration file (.env) for LangRead application.
+Setup environment configuration file (.env) for Lingogi application.
 This script creates a .env file with your OpenAI API key and other configuration.
 """
 import os
@@ -68,6 +68,6 @@ LOG_LEVEL=INFO
     print("\nIMPORTANT: Keep your .env file secure and never commit it to version control.")
 
 if __name__ == "__main__":
-    print("LangRead Environment Setup")
+    print("Lingogi Environment Setup")
     print("==========================")
     setup_env()

@@ -79,7 +79,7 @@ const HomePage = () => {
         >
           <Flex align="center">
             <Box mr={4}>
-              <Image src="/images/mascot.jpg" alt="Lingogi mascot" boxSize="60px" borderRadius="full" />
+              <Image src="/images/mascot.png" alt="Lingogi mascot" boxSize="60px" borderRadius="full" />
             </Box>
             <Heading as="h1" size="2xl">
               Lingogi

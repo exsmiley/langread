@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Server management script for LangRead application.
+Server management script for Lingogi application.
 This script can:
 1. Kill any existing server processes
 2. Start the API server and frontend server
@@ -199,7 +199,7 @@ def install_dependencies():
 
 def main():
     """Main entry point for the script."""
-    parser = argparse.ArgumentParser(description="LangRead Server Management")
+    parser = argparse.ArgumentParser(description="Lingogi Server Management")
     parser.add_argument('action', choices=['start', 'stop', 'restart', 'status', 'install'], 
                         help="Action to perform")
     parser.add_argument('--api-only', action='store_true', help="Only manage API server")

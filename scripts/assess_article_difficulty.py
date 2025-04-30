@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LangRead Article Difficulty Assessment Service
+Lingogi Article Difficulty Assessment Service
 
 This script:
 1. Finds articles with unknown difficulty levels

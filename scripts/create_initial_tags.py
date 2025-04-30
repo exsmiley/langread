@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to create initial tags for the LangRead application.
+Script to create initial tags for the Lingogi application.
 This will create language learning related tags with proper translations.
 """
 from path_helper import setup_path

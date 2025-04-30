@@ -24,7 +24,7 @@ async def analyze_data():
     """Analyze article and tag data in the database."""
     
     print("-" * 50)
-    print("LangRead Database Analysis")
+    print("Lingogi Database Analysis")
     print("-" * 50)
     
     # Initialize database connection

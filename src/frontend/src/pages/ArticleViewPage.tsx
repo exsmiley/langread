@@ -219,6 +219,17 @@ const MOCK_TRANSLATIONS: Record<string, Translation> = {
 
 
 
+// Interface for Tag structure
+interface Tag {
+  _id: string;
+  name: string;
+  description?: string;
+  language: string;
+  count?: number;
+}
+
+
+
 const ArticleViewPage = () => {
   const { articleId } = useParams<{ articleId: string }>();
   const [article, setArticle] = useState<Article | null>(null);
@@ -228,6 +239,7 @@ const ArticleViewPage = () => {
   const [translation, setTranslation] = useState<Translation | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const [popupPosition, setPopupPosition] = useState({ top: 0, left: 0 });
+  const [tags, setTags] = useState<{[key: string]: Tag}>({});
   
   // Use the centralized language context
   const { 
@@ -248,6 +260,9 @@ const ArticleViewPage = () => {
     const fetchArticle = async () => {
       setIsLoading(true);
       setError(null);
+      
+    // Don't fetch all tags on load as we'll use the lookup endpoint
+    // only when we have an article with tag IDs
       
       try {
         if (!articleId) {
@@ -298,6 +313,43 @@ const ArticleViewPage = () => {
     
     fetchArticle();
   }, [articleId, toast]);
+  
+  // Fetch tags whenever article changes and has tag IDs
+  useEffect(() => {
+    if (!article || !article.tag_ids || article.tag_ids.length === 0) return;
+    
+    const lookupTags = async () => {
+      try {
+        // Use the new lookup endpoint to get tag info for specific IDs
+        const response = await axios.post('http://localhost:8000/tags/lookup', {
+          tag_ids: article.tag_ids
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.data && response.data.tags) {
+          // Convert array to lookup object
+          const tagsObject = response.data.tags.reduce((acc: {[key: string]: Tag}, tag: any) => {
+            if (!tag.missing) {
+              acc[tag._id] = tag;
+            }
+            return acc;
+          }, {});
+          
+          setTags(tagsObject);
+          console.log('Tags looked up successfully:', Object.keys(tagsObject).length);
+        }
+      } catch (error) {
+        console.error('Error looking up tags:', error);
+        // Don't set any fallback tags - we'll hide them if lookup fails
+        setTags({});
+      }
+    };
+    
+    lookupTags();
+  }, [article]);
   
   // Get the surrounding sentence for a text node
   const getSurroundingSentence = (node: Node, offset: number): string => {
@@ -698,13 +750,15 @@ const ArticleViewPage = () => {
               )}
             </HStack>
             
-            {/* Tags */}
-            {article.tag_ids && article.tag_ids.length > 0 && (
+            {/* Tags - only show when we have proper tag data */}
+            {article.tag_ids && article.tag_ids.length > 0 && Object.keys(tags).length > 0 && (
               <HStack wrap="wrap" spacing={2}>
                 {article.tag_ids.map((tagId, index) => (
-                  <Badge key={index} colorScheme="teal" variant="subtle">
-                    {tagId}
-                  </Badge>
+                  tags[tagId] && (
+                    <Badge key={index} colorScheme="teal" variant="subtle">
+                      {tags[tagId].name}
+                    </Badge>
+                  )
                 ))}
               </HStack>
             )}
@@ -779,9 +833,9 @@ const ArticleViewPage = () => {
                     const processedContent = section.content.split(/\n.*?(?:Gyeonggi|See more|Centre d'innovation)/)[0];
                     console.log('Section content:', { original: section.content, processed: processedContent });
                     return (
-                      <Box key={index} fontSize="md" lineHeight="tall">
+                      <Text as="div" key={index} fontSize="md" lineHeight="tall">
                         {processedContent}
-                      </Box>
+                      </Text>
                     );
                 }
               })}
@@ -790,9 +844,9 @@ const ArticleViewPage = () => {
             {(!article.sections || article.sections.length === 0) && article.text && 
               article.text.split('\n').map((paragraph, index) => (
                 paragraph.trim() && (
-                  <Box key={index} fontSize="md" lineHeight="tall">
+                  <Text as="div" key={index} fontSize="md" lineHeight="tall">
                     {paragraph}
-                  </Box>
+                  </Text>
                 )
               ))
             }

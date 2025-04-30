@@ -1,3 +1,3 @@
 """
-Web scraping and content retrieval modules for LangRead
+Web scraping and content retrieval modules for Lingogi
 """

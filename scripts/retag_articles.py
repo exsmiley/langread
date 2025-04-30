@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Add meaningful tags to articles in the LangRead database.
+Add meaningful tags to articles in the Lingogi database.
 
 This script:
 1. Finds articles with only metadata tags (like "rss", "ko")

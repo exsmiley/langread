@@ -1,3 +1,3 @@
 """
-Models for LangRead application
+Models for Lingogi application
 """
