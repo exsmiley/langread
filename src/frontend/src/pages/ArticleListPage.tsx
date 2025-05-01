@@ -34,6 +34,7 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 
 // Type definitions
@@ -272,13 +273,41 @@ const ArticleListPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
   
-  // Language and tag states
+  // Get user authentication context
+  const { user } = useAuth();
+  
+  // Language and tag states - use user's native language from profile
   const [nativeLanguage, setNativeLanguage] = useState(() => {
+    // If we have a user with a native language preference, use that
+    if (user?.native_language) {
+      return user.native_language;
+    }
+    // Otherwise fall back to URL param or default to English
     return searchParams.get('native') || 'en';
   });
   const nativeLanguageRef = useRef(nativeLanguage);
   const [targetLanguage, setTargetLanguage] = useState(() => {
-    return searchParams.get('target') || 'ko';
+    // If there's a target in the URL, prioritize that
+    const urlTarget = searchParams.get('target');
+    if (urlTarget) {
+      return urlTarget;
+    }
+    
+    // Check if user has multiple languages with a default marked
+    if (user?.additional_languages && Array.isArray(user.additional_languages)) {
+      const defaultLang = user.additional_languages.find(lang => lang.isDefault);
+      if (defaultLang) {
+        return defaultLang.language;
+      }
+    }
+    
+    // Fall back to the primary learning language
+    if (user?.learning_language) {
+      return user.learning_language;
+    }
+    
+    // Last resort default to Korean
+    return 'ko';
   });
   const [difficulty, setDifficulty] = useState(() => {
     return searchParams.get('difficulty') || 'intermediate';
@@ -663,18 +692,6 @@ const ArticleListPage: React.FC = () => {
           <form onSubmit={handleSubmit}>
             <VStack spacing={5} align="stretch">
               <HStack spacing={4} wrap={{ base: "wrap", md: "nowrap" }}>
-                <FormControl id="nativeLanguage">
-                  <FormLabel fontWeight="bold">My Language</FormLabel>
-                  <Select
-                    value={nativeLanguage}
-                    onChange={(e) => setNativeLanguage(e.target.value)}
-                  >
-                    {languageOptions.map(lang => (
-                      <option key={lang.value} value={lang.value}>{lang.label}</option>
-                    ))}
-                  </Select>
-                </FormControl>
-
                 <FormControl id="targetLanguage" isRequired>
                   <FormLabel fontWeight="bold">Target Language</FormLabel>
                   <Select

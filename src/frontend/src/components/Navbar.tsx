@@ -10,15 +10,23 @@ import {
   IconButton,
   Collapse,
   Link as ChakraLink,
-  Image
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  MenuDivider,
+  Avatar
 } from '@chakra-ui/react';
-import { HamburgerIcon, CloseIcon } from '@chakra-ui/icons';
-import { Link as RouterLink } from 'react-router-dom';
+import { HamburgerIcon, CloseIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
   const { isOpen, onToggle } = useDisclosure();
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const { user, isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <Box>
@@ -72,29 +80,67 @@ const Navbar = () => {
           direction={'row'}
           spacing={6}
         >
-          <Button
-            as={RouterLink}
-            to="/login"
-            fontSize={'sm'}
-            fontWeight={400}
-            variant={'link'}
-          >
-            Sign In
-          </Button>
-          <Button
-            as={RouterLink}
-            to="/signup"
-            display={{ base: 'none', md: 'inline-flex' }}
-            fontSize={'sm'}
-            fontWeight={600}
-            color={'white'}
-            bg={'blue.400'}
-            _hover={{
-              bg: 'blue.300',
-            }}
-          >
-            Sign Up
-          </Button>
+          {isAuthenticated ? (
+            <Menu>
+              <MenuButton
+                as={Button}
+                rounded={'full'}
+                variant={'link'}
+                cursor={'pointer'}
+                minW={0}
+              >
+                <Flex align="center">
+                  <Avatar
+                    size={'sm'}
+                    mr={2}
+                    name={user?.name}
+                    bg="blue.500"
+                  />
+                  <Box display={{ base: 'none', md: 'block' }}>
+                    <Text fontWeight="medium">{user?.name}</Text>
+                    <Text fontSize="xs" color="gray.500" lineHeight="shorter">
+                      Lingogi User
+                    </Text>
+                  </Box>
+                  <ChevronDownIcon ml={1} />
+                </Flex>
+              </MenuButton>
+              <MenuList>
+                <MenuItem as={RouterLink} to="/settings">Settings</MenuItem>
+                <MenuDivider />
+                <MenuItem onClick={() => {
+                  signOut();
+                  navigate('/');
+                }}>Sign Out</MenuItem>
+              </MenuList>
+            </Menu>
+          ) : (
+            <>
+              <Button
+                as={RouterLink}
+                to="/signin"
+                fontSize={'sm'}
+                fontWeight={400}
+                variant={'link'}
+              >
+                Sign In
+              </Button>
+              <Button
+                as={RouterLink}
+                to="/signup"
+                display={{ base: 'none', md: 'inline-flex' }}
+                fontSize={'sm'}
+                fontWeight={600}
+                color={'white'}
+                bg={'blue.400'}
+                _hover={{
+                  bg: 'blue.300',
+                }}
+              >
+                Sign Up
+              </Button>
+            </>
+          )}
         </Stack>
       </Flex>
 
@@ -108,10 +154,25 @@ const Navbar = () => {
 const DesktopNav = () => {
   const linkColor = useColorModeValue('gray.600', 'gray.200');
   const linkHoverColor = useColorModeValue('gray.800', 'white');
+  const { isAuthenticated } = useAuth();
+  
+  // Filter nav items based on authentication status
+  const visibleNavItems = NAV_ITEMS.filter(item => {
+    // Always show Home
+    if (item.label === 'Home') {
+      return true;
+    }
+    // Show About only when not authenticated
+    if (item.label === 'About') {
+      return !isAuthenticated;
+    }
+    // Only show Articles and Vocabulary when authenticated
+    return isAuthenticated;
+  });
 
   return (
     <Stack direction={'row'} spacing={4}>
-      {NAV_ITEMS.map((navItem) => (
+      {visibleNavItems.map((navItem) => (
         <Box key={navItem.label}>
           <ChakraLink
             as={RouterLink}
@@ -134,13 +195,29 @@ const DesktopNav = () => {
 };
 
 const MobileNav = () => {
+  const { isAuthenticated } = useAuth();
+  
+  // Filter nav items based on authentication status (same logic as DesktopNav)
+  const visibleNavItems = NAV_ITEMS.filter(item => {
+    // Always show Home
+    if (item.label === 'Home') {
+      return true;
+    }
+    // Show About only when not authenticated
+    if (item.label === 'About') {
+      return !isAuthenticated;
+    }
+    // Only show Articles and Vocabulary when authenticated
+    return isAuthenticated;
+  });
+  
   return (
     <Stack
       bg={useColorModeValue('white', 'gray.800')}
       p={4}
       display={{ md: 'none' }}
     >
-      {NAV_ITEMS.map((navItem) => (
+      {visibleNavItems.map((navItem) => (
         <MobileNavItem key={navItem.label} {...navItem} />
       ))}
     </Stack>
@@ -185,12 +262,8 @@ const NAV_ITEMS: Array<NavItem> = [
     href: '/vocabulary',
   },
   {
-    label: 'Flashcards',
-    href: '/flashcards',
-  },
-  {
-    label: 'Admin Tags',
-    href: '/admin/tags',
+    label: 'About',
+    href: '/about',
   },
 ];
 

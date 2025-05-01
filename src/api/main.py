@@ -30,8 +30,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 # Import tag generator
 from src.utils.tag_generator import tag_generator
 
-# Import tag routes
+# Import routes
 from src.api.tag_routes import router as tag_router, get_tag_stats
+from src.api.db_helpers import get_database_service, db_service
+from src.api.auth.routes import router as auth_router
+from src.api.user.routes import router as user_router
 from pathlib import Path
 
 # Import custom JSON encoder for MongoDB ObjectId
@@ -90,8 +93,7 @@ class CustomJSONResponse(JSONResponse):
 
 app.json_response_class = CustomJSONResponse
 
-# Initialize the database service
-db_service = DatabaseService()
+# The database service is initialized in dependencies.py
 
 # Connect to MongoDB when the application starts
 @app.on_event("startup")
@@ -103,9 +105,7 @@ async def startup():
 async def shutdown():
     await db_service.disconnect()
 
-# Dependency to get the database service
-async def get_database_service():
-    return db_service
+# Database dependency already imported above
 
 # Global ContentAgent instance (singleton)
 content_agent = None
@@ -136,7 +136,7 @@ app.add_middleware(
         "*"  # Allow any origin for development
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -1408,6 +1408,8 @@ async def bulk_fetch_info(cache: ArticleCache = Depends(get_article_cache)):
 
 # Include other routers here
 app.include_router(tag_router)
+app.include_router(auth_router)
+app.include_router(user_router)
 
 # Add proxy routes for compatibility with frontend
 @app.get("/api/tags")

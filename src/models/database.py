@@ -49,12 +49,13 @@ class DatabaseService:
         self.users_collection = None
         self.flashcards_collection = None
         self.tags_collection = None
-    
-    async def connect(self):
-        """Connect to the database."""
+        
+    def _init_connection(self):
+        """Initialize connection to MongoDB synchronously."""
         try:
+            # Just set up the client
             self.client = motor.motor_asyncio.AsyncIOMotorClient(self.connection_string)
-            self.db = self.client.langread
+            self.db = self.client.get_default_database()
             
             # Initialize collections
             self.articles_collection = self.db.articles
@@ -62,6 +63,20 @@ class DatabaseService:
             self.users_collection = self.db.users
             self.flashcards_collection = self.db.flashcards
             self.tags_collection = self.db.tags
+        except Exception as e:
+            logger.error(f"Error initializing MongoDB connection: {e}")
+    
+    async def connect(self):
+        """Connect to the database asynchronously."""
+        logger.info("Connecting to MongoDB")
+        try:
+            # If collections are not initialized yet, initialize them
+            if self.users_collection is None:
+                self._init_connection()
+            
+            # Verify connection is working with a ping
+            await self.db.command('ping')
+            logger.info("Connected to MongoDB")
             
             # Create indexes
             await self.articles_collection.create_index([("date_fetched", 1)])
