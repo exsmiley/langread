@@ -20,7 +20,7 @@ import ContactPage from './pages/ContactPage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import ProfilePage from './pages/ProfilePage';
-import FixedSettingsPage from './pages/FixedSettingsPage';
+import SettingsPage from './pages/SettingsPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 
@@ -103,7 +103,7 @@ function App() {
                   <Route path="/settings" element={
                     <ErrorBoundary>
                       <ProtectedRoute>
-                        <FixedSettingsPage />
+                        <SettingsPage />
                       </ProtectedRoute>
                     </ErrorBoundary>
                   } />

@@ -1,4 +1,3 @@
-import React, { useState, useEffect, useContext } from 'react';
 import React, { useState, useEffect } from 'react';
 import { 
   Box, 
@@ -13,9 +12,20 @@ import {
   Select, 
   Spinner, 
   Center, 
-  useToast,
   IconButton,
-  useColorModeValue
+  Input,
+  FormHelperText,
+  Flex,
+  Tag,
+  Alert,
+  AlertIcon,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton
 } from '@chakra-ui/react';
 import { AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +33,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getToken } from '../utils/tokenUtils';
 
-// Define the LearningLanguage interface locally
+// Define the LearningLanguage interface
 interface LearningLanguage {
   language: string;
   proficiency: string;
@@ -43,42 +53,117 @@ const LANGUAGE_OPTIONS = [
 ];
 
 /**
- * Simplified Settings page that allows users to manage language preferences
+ * Settings page wrapper component
+ * This separates authentication logic from the main content
  */
 const SettingsPage = () => {
-  // All hooks at the top level to follow React's rules
+  // Basic non-context state
+  const [isReady, setIsReady] = useState(false);
+  
+  // Auth-related hooks
   const navigate = useNavigate();
-  const toast = useToast();
   const auth = useAuth();
   
-  // Form state
-  const [name, setName] = useState('');
-  const [nativeLanguage, setNativeLanguage] = useState('en');
-  const [studyLanguages, setStudyLanguages] = useState<LearningLanguage[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // Effect to check authentication status
+  useEffect(() => {
+    if (!auth.loading) {
+      if (!auth.user) {
+        // Redirect to sign in if not authenticated
+        navigate('/signin');
+      } else {
+        // User is authenticated, content can be rendered
+        setIsReady(true);
+      }
+    }
+  }, [auth.loading, auth.user, navigate]);
   
-  // Get user data from auth context
-  const user = auth?.user;
+  // Show loading spinner while checking auth
+  if (!isReady) {
+    return (
+      <Center h="100vh">
+        <Spinner size="xl" />
+      </Center>
+    );
+  }
+  
+  // Once authenticated, render the main content
+  return <SettingsPageContent />;
+};
+
+/**
+ * Main settings page content component
+ * Only rendered after authentication is confirmed
+ */
+// Simple page content without dependency on context hooks
+const SettingsPageContent = () => {
+  // Get references passed from parent
+  const navigate = useNavigate();
+  const auth = useAuth();
+  
+  // Local state first - before any potential context dependencies
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const onOpen = () => setIsModalOpen(true);
+  const onClose = () => setIsModalOpen(false);
   
   // Form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [nativeLanguage, setNativeLanguage] = useState('en');
   const [studyLanguages, setStudyLanguages] = useState<LearningLanguage[]>([]);
-  const [availableLanguages, setAvailableLanguages] = useState<{ code: string; name: string; }[]>([]);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError] = useState('');
   
   // Add language modal
   const [newLanguage, setNewLanguage] = useState('');
   const [newProficiency, setNewProficiency] = useState('beginner');
   
-  // Colors
-  const bgColor = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  // Get user data from auth context
+  
+  // Log authentication status
+  useEffect(() => {
+    console.log('[SettingsPage] Authentication status:', 
+      auth.loading ? 'loading' : (auth.user ? 'authenticated' : 'not authenticated'));
+  }, [auth.loading, auth.user]);
+
+  // Initialize user data
+  useEffect(() => {
+    if (auth.user) {
+      // Set initial values from user object
+      setName(auth.user.name || '');
+      setEmail(auth.user.email || '');
+      setNativeLanguage(auth.user.native_language || 'en');
+
+      // Set initial study languages array
+      let initialLanguages = [];
+
+      // Add main learning language if it exists
+      if (auth.user.learning_language) {
+        initialLanguages.push({
+          language: auth.user.learning_language,
+          proficiency: auth.user.proficiency || 'intermediate',
+          isDefault: true
+        });
+      }
+
+      // Add additional languages if they exist
+      if (auth.user.additional_languages && Array.isArray(auth.user.additional_languages)) {
+        auth.user.additional_languages.forEach(lang => {
+          if (lang && lang.language) {
+            initialLanguages.push({
+              language: lang.language,
+              proficiency: lang.proficiency || 'beginner',
+              isDefault: false
+            });
+          }
+        });
+      }
+
+      setStudyLanguages(initialLanguages);
+    }
+  }, [auth.user]);
   
   // Handle setting a language as default
   const handleSetDefaultLanguage = (index: number) => {
@@ -142,51 +227,6 @@ const SettingsPage = () => {
     setHasChanges(true);
   };
 
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      console.log('[SettingsPage] Not authenticated, redirecting to sign in');
-      navigate('/signin');
-    }
-  }, [loading, user, navigate]);
-
-  // Initialize user data
-  useEffect(() => {
-    if (user) {
-      // Set initial values from user object
-      setName(user.name || '');
-      setEmail(user.email || '');
-      setNativeLanguage(user.native_language || 'en');
-
-      // Set initial study languages array
-      let initialLanguages = [];
-
-      // Add main learning language if it exists
-      if (user.learning_language) {
-        initialLanguages.push({
-          language: user.learning_language,
-          proficiency: user.proficiency || 'intermediate',
-          isDefault: true
-        });
-      }
-
-      // Add additional languages if they exist
-      if (user.additional_languages && Array.isArray(user.additional_languages)) {
-        user.additional_languages.forEach(lang => {
-          if (lang && lang.language) {
-            initialLanguages.push({
-              language: lang.language,
-              proficiency: lang.proficiency || 'beginner',
-              isDefault: false
-            });
-          }
-        });
-      }
-
-      setStudyLanguages(initialLanguages);
-    }
-  }, [user]);
-
   // Handle saving settings
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -195,7 +235,7 @@ const SettingsPage = () => {
 
     try {
       // Prepare the update data
-      const updateData = {
+      const updateData: any = {
         name,
         native_language: nativeLanguage
       };
@@ -256,19 +296,9 @@ const SettingsPage = () => {
         );
         
         console.log('[SettingsPage] API request successful:', response.data);
-        const responseData = response.data;
-        
-        // Axios response handling is done above
         
         // Success notification
-        toast({
-          title: 'Settings saved',
-          description: 'Your profile settings have been updated successfully.',
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-          position: 'top'
-        });
+        console.log('Profile saved successfully!');
         
         setSaveSuccess(true);
         setHasChanges(false);
@@ -282,14 +312,7 @@ const SettingsPage = () => {
         
         setError(errorMessage);
         
-        toast({
-          title: 'Settings update failed',
-          description: errorMessage,
-          status: 'error',
-          duration: 7000,
-          isClosable: true,
-          position: 'top'
-        });
+        console.error('Failed to save profile. Please try again.');
       }
     } catch (err: any) {
       console.error('Failed to update profile:', err);
@@ -299,34 +322,11 @@ const SettingsPage = () => {
     }
   };
 
-  // Simple helper function for debugging
-  const logDebug = (message: string) => {
-    console.log(`[SettingsPage] ${message}`);
-  };
-  
-  // Show loading spinner while authentication status is being checked
-  if (loading) {
-    return (
-      <Container maxW="container.md" py={10}>
-        <Center h="200px">
-          <Spinner size="xl" />
-          <Text ml={4}>Loading your settings...</Text>
-        </Center>
-      </Container>
-    );
-  }
-  
-  // Redirect happens in the useEffect if not authenticated
-  if (!user) {
-    return null;
-  }
-  
-  // Get language label by value
+  // Helper functions
   const getLanguageLabel = (value: string) => {
     return LANGUAGE_OPTIONS.find(lang => lang.value === value)?.label || value;
   };
   
-  // Get proficiency label
   const getProficiencyLabel = (value: string) => {
     switch(value) {
       case 'beginner': return 'Beginner';
@@ -336,15 +336,7 @@ const SettingsPage = () => {
     }
   };
   
-  if (loading) {
-    return (
-      <Container maxW="container.md" py={10}>
-        <Flex justify="center" align="center" minH="60vh">
-          <Text>Loading settings...</Text>
-        </Flex>
-      </Container>
-    );
-  }
+  // Loading state is now handled at the top of the component
   
   return (
     <Container maxW="container.md" py={10}>
@@ -365,7 +357,7 @@ const SettingsPage = () => {
           </Alert>
         )}
         
-        <Box p={6} bg={bgColor} borderRadius="md" borderWidth="1px" borderColor={borderColor}>
+        <Box p={6} bg="white" borderRadius="md" borderWidth="1px" borderColor="gray.200">
           <VStack spacing={6} align="stretch">
             <Heading as="h2" size="md">Personal Information</Heading>
             
@@ -373,7 +365,10 @@ const SettingsPage = () => {
               <FormLabel>Name</FormLabel>
               <Input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setHasChanges(true);
+                }}
               />
             </FormControl>
             
@@ -382,7 +377,7 @@ const SettingsPage = () => {
               <Input
                 value={email}
                 isReadOnly
-                bg={useColorModeValue('gray.100', 'gray.700')}
+                bg="gray.100"
               />
               <FormHelperText>Email cannot be changed</FormHelperText>
             </FormControl>
@@ -391,7 +386,10 @@ const SettingsPage = () => {
               <FormLabel>My Native Language</FormLabel>
               <Select
                 value={nativeLanguage}
-                onChange={(e) => setNativeLanguage(e.target.value)}
+                onChange={(e) => {
+                  setNativeLanguage(e.target.value);
+                  setHasChanges(true);
+                }}
               >
                 {LANGUAGE_OPTIONS.map(lang => (
                   <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -401,7 +399,7 @@ const SettingsPage = () => {
           </VStack>
         </Box>
         
-        <Box p={6} bg={bgColor} borderRadius="md" borderWidth="1px" borderColor={borderColor}>
+        <Box p={6} bg="white" borderRadius="md" borderWidth="1px" borderColor="gray.200">
           <VStack spacing={6} align="stretch">
             <Flex justify="space-between" align="center">
               <Heading as="h2" size="md">Languages I'm Learning</Heading>
@@ -423,8 +421,8 @@ const SettingsPage = () => {
                     p={4} 
                     borderWidth="1px" 
                     borderRadius="md" 
-                    borderColor={lang.isDefault ? 'blue.500' : borderColor}
-                    bg={lang.isDefault ? useColorModeValue('blue.50', 'blue.900') : 'transparent'}
+                    borderColor={lang.isDefault ? 'blue.500' : 'gray.200'}
+                    bg={lang.isDefault ? 'blue.50' : 'transparent'}
                     justify="space-between"
                     align="center"
                   >
@@ -477,24 +475,10 @@ const SettingsPage = () => {
             Save Changes
           </Button>
         </Flex>
-        
-        {saveSuccess && (
-          <Alert status="success" mt={4} variant="solid" colorScheme="green">
-            <AlertIcon />
-            Your settings have been saved successfully!
-          </Alert>
-        )}
-        
-        {error && (
-          <Alert status="error" mt={4} variant="solid">
-            <AlertIcon />
-            {error}
-          </Alert>
-        )}
       </VStack>
       
       {/* Add Language Modal */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isModalOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Add New Language</ModalHeader>
@@ -551,291 +535,6 @@ const SettingsPage = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-    </Container>
-  );
-};
-
-// Simple component for language settings
-const SettingsPage = () => {
-  // All hooks at the top level
-  const navigate = useNavigate();
-  const toast = useToast();
-  const auth = useAuth();
-  const bgColor = useColorModeValue('white', 'gray.800');
-  
-  // State for language preferences
-  const [nativeLanguage, setNativeLanguage] = useState('en');
-  const [studyLanguages, setStudyLanguages] = useState<LearningLanguage[]>([]);
-  const [newLanguage, setNewLanguage] = useState('');
-  const [newProficiency, setNewProficiency] = useState('beginner');
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  
-  // Get user data
-  const user = auth?.user;
-  const loading = auth?.loading || false;
-  
-  // Handle redirects
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/signin');
-    }
-  }, [loading, user, navigate]);
-  
-  // Initialize data from user
-  useEffect(() => {
-    if (user) {
-      setNativeLanguage(user.native_language || 'en');
-      
-      let languages: LearningLanguage[] = [];
-      
-      // Add main learning language
-      if (user.learning_language) {
-        languages.push({
-          language: user.learning_language,
-          proficiency: user.proficiency || 'beginner',
-          isDefault: true
-        });
-      }
-      
-      // Add additional languages
-      if (user.additional_languages && Array.isArray(user.additional_languages)) {
-        user.additional_languages.forEach(lang => {
-          languages.push({
-            language: lang.language,
-            proficiency: lang.proficiency,
-            isDefault: false
-          });
-        });
-      }
-      
-      setStudyLanguages(languages);
-    }
-  }, [user]);
-  
-  // Add a new language
-  const handleAddLanguage = () => {
-    if (!newLanguage) return;
-    
-    // Check if language already exists
-    if (studyLanguages.some(lang => lang.language === newLanguage)) {
-      setError('You are already studying this language');
-      return;
-    }
-    
-    const updatedLanguages = [...studyLanguages];
-    updatedLanguages.push({
-      language: newLanguage,
-      proficiency: newProficiency,
-      isDefault: updatedLanguages.length === 0 // Make default if first
-    });
-    
-    setStudyLanguages(updatedLanguages);
-    setNewLanguage('');
-    setNewProficiency('beginner');
-  };
-  
-  // Remove a language
-  const handleRemoveLanguage = (index: number) => {
-    const updatedLanguages = [...studyLanguages];
-    
-    // If removing default, make another default
-    if (updatedLanguages[index].isDefault && updatedLanguages.length > 1) {
-      const nextIndex = index === 0 ? 1 : 0;
-      updatedLanguages[nextIndex].isDefault = true;
-    }
-    
-    updatedLanguages.splice(index, 1);
-    setStudyLanguages(updatedLanguages);
-  };
-  
-  // Set a language as default
-  const handleSetDefaultLanguage = (index: number) => {
-    const updatedLanguages = [...studyLanguages];
-    
-    // Reset all defaults
-    updatedLanguages.forEach(lang => {
-      lang.isDefault = false;
-    });
-    
-    updatedLanguages[index].isDefault = true;
-    setStudyLanguages(updatedLanguages);
-  };
-  
-  // Save settings
-  const handleSaveSettings = async () => {
-    setIsSaving(true);
-    setError('');
-    
-    try {
-      // Get token
-      const token = localStorage.getItem('lingogi_token') || 
-                   document.cookie.replace(/(?:(?:^|.*;\s*)lingogi_token\s*=\s*([^;]*).*$)|^.*$/, '$1');
-      
-      if (!token) {
-        setError('Authentication token not found');
-        setIsSaving(false);
-        return;
-      }
-      
-      // Prepare data
-      const defaultLang = studyLanguages.find(lang => lang.isDefault);
-      const additionalLangs = studyLanguages.filter(lang => !lang.isDefault);
-      
-      const updateData = {
-        name: user?.name || '',
-        native_language: nativeLanguage
-      };
-      
-      if (defaultLang) {
-        Object.assign(updateData, {
-          learning_language: defaultLang.language,
-          proficiency: defaultLang.proficiency,
-          additional_languages: additionalLangs
-        });
-      }
-      
-      // Make the API request directly with fetch
-      const response = await fetch('http://localhost:8000/api/user/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(updateData)
-      });
-      
-      if (response.ok) {
-        toast({
-          title: 'Settings saved',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        });
-      } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Failed to update settings');
-      }
-    } catch (err: any) {
-      console.error('Error saving settings:', err);
-      setError(err.message || 'Network error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  // Loading state
-  if (loading) {
-    return (
-      <Container maxW="container.md" py={10}>
-        <Center h="300px">
-          <Spinner size="xl" />
-        </Center>
-      </Container>
-    );
-  }
-  
-  return (
-    <Container maxW="container.md" py={10}>
-      <VStack spacing={8} align="stretch">
-        <Heading>Language Settings</Heading>
-        
-        {error && <Text color="red.500">{error}</Text>}
-        
-        <Box p={5} shadow="md" borderWidth="1px" bg={bgColor}>
-          <VStack spacing={4} align="stretch">
-            <FormControl>
-              <FormLabel>Native Language</FormLabel>
-              <Select 
-                value={nativeLanguage} 
-                onChange={(e) => setNativeLanguage(e.target.value)}
-              >
-                <option value="en">English</option>
-                <option value="ko">Korean</option>
-                <option value="ja">Japanese</option>
-                <option value="zh">Chinese</option>
-                <option value="es">Spanish</option>
-                <option value="fr">French</option>
-                <option value="de">German</option>
-              </Select>
-            </FormControl>
-            
-            <Box>
-              <Heading size="sm" mb={2}>Languages You're Learning</Heading>
-              {studyLanguages.length === 0 ? (
-                <Text color="gray.500">No languages added yet</Text>
-              ) : (
-                <VStack align="stretch" spacing={2}>
-                  {studyLanguages.map((lang, index) => (
-                    <HStack key={index} p={2} borderWidth="1px" borderRadius="md">
-                      <Text flex="1">{lang.language}</Text>
-                      <Text color="gray.500">{lang.proficiency}</Text>
-                      {lang.isDefault && <Text color="green.500">(Default)</Text>}
-                      <IconButton
-                        aria-label="Set as default"
-                        icon={<CheckIcon />}
-                        size="sm"
-                        colorScheme={lang.isDefault ? 'green' : 'gray'}
-                        onClick={() => handleSetDefaultLanguage(index)}
-                      />
-                      <IconButton
-                        aria-label="Remove language"
-                        icon={<CloseIcon />}
-                        size="sm"
-                        colorScheme="red"
-                        onClick={() => handleRemoveLanguage(index)}
-                      />
-                    </HStack>
-                  ))}
-                </VStack>
-              )}
-            </Box>
-            
-            <Box>
-              <Heading size="sm" mb={2}>Add Language</Heading>
-              <HStack>
-                <Select 
-                  placeholder="Select language" 
-                  value={newLanguage}
-                  onChange={(e) => setNewLanguage(e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="ko">Korean</option>
-                  <option value="ja">Japanese</option>
-                  <option value="zh">Chinese</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                </Select>
-                <Select
-                  value={newProficiency}
-                  onChange={(e) => setNewProficiency(e.target.value)}
-                >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </Select>
-                <Button
-                  leftIcon={<AddIcon />}
-                  colorScheme="blue"
-                  onClick={handleAddLanguage}
-                >
-                  Add
-                </Button>
-              </HStack>
-            </Box>
-            
-            <Button 
-              colorScheme="green" 
-              mt={4} 
-              onClick={handleSaveSettings} 
-              isLoading={isSaving}
-            >
-              Save Settings
-            </Button>
-          </VStack>
-        </Box>
-      </VStack>
     </Container>
   );
 };
