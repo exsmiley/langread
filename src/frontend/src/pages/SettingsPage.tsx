@@ -300,6 +300,10 @@ const SettingsPageContent = () => {
         // Success notification
         console.log('Profile saved successfully!');
         
+        // Update the user data in AuthContext to reflect the changes
+        await auth.updateUser();
+        console.log('[SettingsPage] User context updated after save');
+        
         setSaveSuccess(true);
         setHasChanges(false);
       } catch (err: any) {

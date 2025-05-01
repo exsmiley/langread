@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, FormEvent, ChangeEvent } from 'react';
+import { useLanguagePreferences } from '../hooks/useLanguagePreferences';
 import {
   Box,
   Container,
@@ -267,15 +268,19 @@ const getArticleDifficulty = (article: Article | any): string => {
 const ArticleListPage: React.FC = () => {
   // State management with URL parameters
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchInitiated, setSearchInitiated] = useState(false);
+  
+  // Ref for article results section
+  const articlesResultsRef = useRef<HTMLDivElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
   
   // Get user authentication context
   const { user } = useAuth();
-  
+
   // Language and tag states - use user's native language from profile
   const [nativeLanguage, setNativeLanguage] = useState(() => {
     // If we have a user with a native language preference, use that
@@ -286,32 +291,8 @@ const ArticleListPage: React.FC = () => {
     return searchParams.get('native') || 'en';
   });
   const nativeLanguageRef = useRef(nativeLanguage);
-  const [targetLanguage, setTargetLanguage] = useState(() => {
-    // If there's a target in the URL, prioritize that
-    const urlTarget = searchParams.get('target');
-    if (urlTarget) {
-      return urlTarget;
-    }
-    
-    // Check if user has multiple languages with a default marked
-    if (user?.additional_languages && Array.isArray(user.additional_languages)) {
-      const defaultLang = user.additional_languages.find(lang => lang.isDefault);
-      if (defaultLang) {
-        return defaultLang.language;
-      }
-    }
-    
-    // Fall back to the primary learning language
-    if (user?.learning_language) {
-      return user.learning_language;
-    }
-    
-    // Last resort default to Korean
-    return 'ko';
-  });
-  const [difficulty, setDifficulty] = useState(() => {
-    return searchParams.get('difficulty') || 'intermediate';
-  });
+  
+  // Additional state for article list page
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [filteredTags, setFilteredTags] = useState<Tag[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -323,11 +304,21 @@ const ArticleListPage: React.FC = () => {
   const [tagsLoading, setTagsLoading] = useState(true);
   const [initialTagLimit, setInitialTagLimit] = useState(10);
   
+  // UI color values
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const formBgColor = useColorModeValue('white', 'gray.800');
   const boxShadow = '0px 4px 10px rgba(0, 0, 0, 0.05)';
-  const tagBgColor = useColorModeValue('gray.100', 'gray.700');
-  const selectedTagBgColor = useColorModeValue('blue.100', 'blue.700');
+  
+  // Use our custom hook to manage target language and difficulty
+  const { 
+    targetLanguage, 
+    difficulty, 
+    setTargetLanguage, 
+    setDifficulty 
+  } = useLanguagePreferences(
+    searchParams.get('target'),
+    searchParams.get('difficulty')
+  );
 
   // Language options for dropdown
   const languageOptions = [
@@ -384,7 +375,6 @@ const ArticleListPage: React.FC = () => {
       
       // Connect to the backend API to get tags
       const response = await api.get(`/api/tags?language=${targetLanguage}&active=true`);
-      console.log('Tag response data:', response.data);
       
       if (response.data && response.data.tags && Array.isArray(response.data.tags)) {
         // Sort tags by article count (most popular first)
@@ -393,16 +383,8 @@ const ArticleListPage: React.FC = () => {
         );
         setAvailableTags(sortedTags);
         setFilteredTags(sortedTags); // Initialize filtered tags with all tags
-      } else if (response.data && Array.isArray(response.data)) {
-        // Handle case where API returns array directly
-        const sortedTags = [...response.data].sort((a, b) => 
-          (b.article_count || 0) - (a.article_count || 0)
-        );
-        setAvailableTags(sortedTags);
-        setFilteredTags(sortedTags); // Initialize filtered tags with all tags
       } else {
-        console.warn('Received unexpected data format from tags API');
-        // Use fallback tags as HomePage does
+        // Use fallback tags
         const fallbackTags: Tag[] = [
           {
             _id: '1',
@@ -417,34 +399,6 @@ const ArticleListPage: React.FC = () => {
             original_language: 'en',
             translations: { en: 'sports', ko: '스포츠', fr: 'sports' },
             article_count: 8
-          },
-          {
-            _id: '3',
-            name: 'music',
-            original_language: 'en',
-            translations: { en: 'music', ko: '음악', fr: 'musique' },
-            article_count: 6
-          },
-          {
-            _id: '4',
-            name: 'food',
-            original_language: 'en',
-            translations: { en: 'food', ko: '음식', fr: 'nourriture' },
-            article_count: 10
-          },
-          {
-            _id: '5',
-            name: 'travel',
-            original_language: 'en',
-            translations: { en: 'travel', ko: '여행', fr: 'voyage' },
-            article_count: 7
-          },
-          {
-            _id: '6',
-            name: 'politics',
-            original_language: 'en',
-            translations: { en: 'politics', ko: '정치', fr: 'politique' },
-            article_count: 9
           }
         ];
         setAvailableTags(fallbackTags);
@@ -452,86 +406,11 @@ const ArticleListPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching tags:', error);
-      // Use fallback tags in case of error
-      const fallbackTags: Tag[] = [
-        {
-          _id: '1',
-          name: 'technology',
-          original_language: 'en',
-          translations: { en: 'technology', ko: '기술', fr: 'technologie' },
-          article_count: 12
-        },
-        {
-          _id: '2',
-          name: 'sports',
-          original_language: 'en',
-          translations: { en: 'sports', ko: '스포츠', fr: 'sports' },
-          article_count: 8
-        },
-        {
-          _id: '3',
-          name: 'music',
-          original_language: 'en',
-          translations: { en: 'music', ko: '음악', fr: 'musique' },
-          article_count: 6
-        },
-        {
-          _id: '4',
-          name: 'food',
-          original_language: 'en',
-          translations: { en: 'food', ko: '음식', fr: 'nourriture' },
-          article_count: 10
-        },
-        {
-          _id: '5',
-          name: 'travel',
-          original_language: 'en',
-          translations: { en: 'travel', ko: '여행', fr: 'voyage' },
-          article_count: 7
-        },
-        {
-          _id: '6',
-          name: 'politics',
-          original_language: 'en',
-          translations: { en: 'politics', ko: '정치', fr: 'politique' },
-          article_count: 9
-        }
-      ];
-      setAvailableTags(fallbackTags);
-      setFilteredTags(fallbackTags);
     } finally {
       setTagsLoading(false);
     }
   };
-  
-  // Filter tags based on search query
-  useEffect(() => {
-    let filteredResults = availableTags;
-    
-    // Apply search filtering if there's a query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filteredResults = availableTags.filter(tag => {
-        // Search by name
-        if (tag.name.toLowerCase().includes(query)) return true;
-        
-        // Search in translations
-        if (tag.translations) {
-          for (const langCode in tag.translations) {
-            const translation = tag.translations[langCode];
-            if (translation.toLowerCase().includes(query)) return true;
-          }
-        }
-        
-        return false;
-      });
-    }
-    
-    // Always limit results to the top 10 tags
-    const limitedResults = filteredResults.slice(0, initialTagLimit);
-    setFilteredTags(limitedResults);
-  }, [availableTags, searchQuery, initialTagLimit]);
-  
+
   // Handle tag selection
   const handleTagClick = (tag: Tag) => {
     if (selectedTagIds.includes(tag._id)) {
@@ -549,18 +428,6 @@ const ArticleListPage: React.FC = () => {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     
-    // Validate required fields
-    if (!targetLanguage) {
-      toast({
-        title: 'Target language required',
-        description: 'Please select a target language to find articles',
-        status: 'warning',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-    
     // Update search params - only include non-empty values
     const params: Record<string, string> = {};
     
@@ -575,98 +442,79 @@ const ArticleListPage: React.FC = () => {
     setSearchParams(params);
   };
 
-  // Use a ref to prevent multiple redundant requests
-  const isFetchingRef = React.useRef(false);
-  const previousFetchParamsRef = React.useRef('');
-  
-  // Fetch articles from API only when necessary and when we have parameters
+  // Fetch tags when the component mounts or target language changes
   useEffect(() => {
-    // Skip initial fetch if no target language is set
-    if (!targetLanguage) {
-      setLoading(false);
-      return;
-    }
-    
-    // Create a stable fetch params string to compare against previous requests
-    const currentFetchParams = JSON.stringify({
-      language: targetLanguage,
-      tags: selectedTagIds,
-      difficulty: difficulty
-    });
-    
-    // Skip fetching if parameters haven't changed
-    if (previousFetchParamsRef.current === currentFetchParams) {
-      console.log('Skipping fetch - parameters unchanged');
-      return;
-    }
-    
-    // Skip if already fetching
-    if (isFetchingRef.current) {
-      console.log('Skipping fetch - already in progress');
-      return;
-    }
-    
-    const fetchArticles = async () => {
-      isFetchingRef.current = true;
-      setLoading(true);
-      setError(null);
-      
-      try {
-        if (!targetLanguage) {
-          setError('Please select a target language');
-          setLoading(false);
-          isFetchingRef.current = false;
-          return;
-        }
-        
-        // Build request body with all necessary parameters
-        const requestBody: Record<string, any> = {
-          language: targetLanguage,
-          group_and_rewrite: true,
-          difficulty: difficulty || 'intermediate', // Default to intermediate if not specified
-          query: selectedTagIds.length > 0 ? selectedTagIds.join(',') : targetLanguage, // Required query parameter
-          max_sources: 10 // Use 10 max sources
-        };
-        
-        // Include selected tags if any
-        if (selectedTagIds.length > 0) {
-          requestBody.tag_ids = selectedTagIds;
-        }
-        
-        console.log('Fetching articles from API:', requestBody);
-        // Use the new simplified endpoint that directly returns articles from the database
-        const response = await api.post('/api/articles-simple', requestBody);
-        previousFetchParamsRef.current = currentFetchParams;
-        
-        if (response.data && response.data.articles && Array.isArray(response.data.articles)) {
-          // Use articles directly from the API response without transformation
-          setArticles(response.data.articles);
-          console.log(`Successfully loaded ${response.data.articles.length} articles`);
-        } else {
-          console.error('API returned no article data or invalid format:', response.data);
-          setError('No articles found for your query. Try a different topic or language.');
-          setArticles([]);
-        }
-      } catch (error) {
-        console.error('Error fetching articles:', error);
-        setError('Failed to load articles. Please try again later.');
-        setArticles([]);
-        toast({
-          title: 'Error loading articles',
-          description: 'Could not connect to the article service. Please try again later.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-      } finally {
-        setLoading(false);
-        isFetchingRef.current = false;
-      }
-    };
-    
-    fetchArticles();
-  }, [targetLanguage, selectedTagIds, difficulty, memoizedSafeFilterArticles, toast]);
+    fetchTags();
+  }, [targetLanguage]);
 
+  // Fetch articles function
+  const fetchArticles = useCallback(async () => {
+    // Reset state
+    setLoading(true);
+    setError(null);
+    setArticles([]);
+    
+    try {
+      // Get current search parameters
+      const targetLang = searchParams.get('target');
+      const difficultyLevel = searchParams.get('difficulty');
+      const tagIdsParam = searchParams.get('tags');
+      
+      if (!targetLang) {
+        console.log('No target language specified, skipping article fetch');
+        setLoading(false);
+        return;
+      }
+      
+      console.log(`Fetching articles for language: ${targetLang}, difficulty: ${difficultyLevel}`);
+      
+      // Parse tag IDs from the URL parameter
+      const tagIds = tagIdsParam ? tagIdsParam.split(',') : [];
+      
+      // Create request payload for the POST request
+      const requestPayload = {
+        language: targetLang,
+        difficulty: difficultyLevel || undefined,
+        tag_ids: tagIds.length > 0 ? tagIds : undefined
+      };
+      
+      // Send POST request to the browse articles endpoint
+      const response = await api.post('/api/articles-browse', requestPayload);
+      
+      if (response.data && Array.isArray(response.data.articles)) {
+        setArticles(response.data.articles);
+        
+        // Scroll to articles section after a short delay (to allow render)
+        setTimeout(() => {
+          if (articlesResultsRef.current && response.data.articles.length > 0) {
+            articlesResultsRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 300);
+      } else {
+        console.warn('Invalid articles response format:', response.data);
+        setArticles([]);
+      }
+    } catch (error) {
+      console.error('Error fetching articles:', error);
+      setError('Failed to load articles. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  }, [searchParams]);
+  
+  // Fetch articles when search parameters change if URL has parameters
+  useEffect(() => {
+    // Only auto-fetch if URL has search parameters
+    if (searchParams.toString()) {
+      setSearchInitiated(true);
+      fetchArticles();
+    } else {
+      // Reset loading state when no search parameters
+      setLoading(false);
+    }
+  }, [fetchArticles, searchParams]);
+  
+  // Handle article click
   const handleArticleClick = useCallback((articleId: string) => {
     if (!articleId) {
       console.error('Attempted to navigate to article with invalid ID');
@@ -674,11 +522,6 @@ const ArticleListPage: React.FC = () => {
     }
     navigate(`/articles/${articleId}`);
   }, [navigate]);
-
-  // Fetch tags when the component mounts or native language changes
-  useEffect(() => {
-    fetchTags();
-  }, [targetLanguage]);
 
   return (
     <Container maxW="container.xl" py={5}>
@@ -691,30 +534,33 @@ const ArticleListPage: React.FC = () => {
         <Box bg={formBgColor} p={6} borderRadius="md" boxShadow={boxShadow}>
           <form onSubmit={handleSubmit}>
             <VStack spacing={5} align="stretch">
-              <HStack spacing={4} wrap={{ base: "wrap", md: "nowrap" }}>
-                <FormControl id="targetLanguage" isRequired>
-                  <FormLabel fontWeight="bold">Target Language</FormLabel>
-                  <Select
-                    value={targetLanguage}
-                    onChange={(e) => {
-                      setTargetLanguage(e.target.value);
-                      setSelectedTags([]);
-                      setSelectedTagIds([]);
-                    }}
-                    placeholder="Select target language"
-                  >
-                    {languageOptions.map(lang => (
-                      <option key={lang.value} value={lang.value}>{lang.label}</option>
-                    ))}
-                  </Select>
-                </FormControl>
-              </HStack>
-
-
+              <FormControl id="targetLanguage" isRequired>
+                <FormLabel fontWeight="bold">Target Language</FormLabel>
+                <Select
+                  value={targetLanguage}
+                  onChange={(e) => {
+                    const newLanguage = e.target.value;
+                    setTargetLanguage(newLanguage);
+                    // Reset tags when language changes
+                    setSelectedTags([]);
+                    setSelectedTagIds([]);
+                  }}
+                  placeholder="Select target language"
+                >
+                  {languageOptions.map(lang => (
+                    <option key={lang.value} value={lang.value}>{lang.label}</option>
+                  ))}
+                </Select>
+              </FormControl>
 
               <FormControl id="difficultyLevel" isRequired>
                 <FormLabel fontWeight="bold">Difficulty Level</FormLabel>
-                <RadioGroup value={difficulty} onChange={setDifficulty}>
+                <RadioGroup 
+                  value={difficulty} 
+                  onChange={(newDifficulty) => {
+                    setDifficulty(newDifficulty);
+                  }}
+                >
                   <Stack direction="row" spacing={4}>
                     <Radio value="beginner">Beginner</Radio>
                     <Radio value="intermediate">Intermediate</Radio>
@@ -811,6 +657,7 @@ const ArticleListPage: React.FC = () => {
                 size="lg"
                 width="100%"
                 isLoading={loading}
+                onClick={() => setSearchInitiated(true)}
               >
                 Find Articles
               </Button>
@@ -831,7 +678,7 @@ const ArticleListPage: React.FC = () => {
           </Flex>
         ) : articles.length > 0 ? (
           <>
-            <Heading as="h2" size="lg" mt={6} mb={4}>
+            <Heading as="h2" size="lg" mt={6} mb={4} ref={articlesResultsRef}>
               {articles.length} Articles Found
             </Heading>
             
@@ -886,7 +733,7 @@ const ArticleListPage: React.FC = () => {
               ))}
             </SimpleGrid>
           </>
-        ) : !loading && !error ? (
+        ) : !loading && !error && searchInitiated ? (
           <Box textAlign="center" py={10}>
             <Heading as="h2" size="lg" mb={4}>No Articles Found</Heading>
             <Text>Try adjusting your search criteria or selecting different tags.</Text>

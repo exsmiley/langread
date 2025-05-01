@@ -285,13 +285,13 @@ async def get_article_by_id(
             content={"detail": f"Error retrieving article: {str(e)}"}
         )
 
-# Simple articles endpoint that returns articles directly from database
-@app.post("/api/articles-simple")
-async def get_articles_simple(
+# Browse articles endpoint that returns articles directly from database
+@app.post("/api/articles-browse")
+async def get_articles_browse(
     request: SimpleArticleRequest,
     db: DatabaseService = Depends(get_database_service)
 ):
-    """Get articles directly from the database with simple filtering"""
+    """Get articles directly from the database for browsing with filtering"""
     try:
         # Build the query filter
         query_filter = {"language": request.language}
@@ -330,7 +330,7 @@ async def get_articles_simple(
         return {"articles": serialized_articles, "count": len(serialized_articles)}
         
     except Exception as e:
-        logger.error(f"Error in get_articles_simple: {str(e)}")
+        logger.error(f"Error in get_articles_browse: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"detail": f"Error retrieving articles: {str(e)}"}

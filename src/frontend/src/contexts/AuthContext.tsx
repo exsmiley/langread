@@ -28,6 +28,7 @@ export interface AuthContextType {
   signUp: (userData: SignUpData) => Promise<boolean>;
   signOut: () => void;
   clearError: () => void;
+  updateUser: () => Promise<boolean>;
 }
 
 interface SignUpData {
@@ -227,6 +228,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setError(null);
   };
 
+  const updateUser = async (): Promise<boolean> => {
+    try {
+      const token = getToken();
+      if (!token) {
+        console.error('AuthContext: No token available for profile update');
+        return false;
+      }
+      
+      console.log('AuthContext: Fetching updated user profile');
+      const response = await axios.get('http://localhost:8000/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data) {
+        console.log('AuthContext: User profile updated successfully');
+        setUser(response.data);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('AuthContext: Error updating user profile:', err);
+      return false;
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -235,7 +263,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signIn,
     signUp,
     signOut,
-    clearError
+    clearError,
+    updateUser
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
