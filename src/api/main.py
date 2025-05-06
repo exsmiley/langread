@@ -37,6 +37,9 @@ from src.api.auth.routes import router as auth_router
 from src.api.user.routes import router as user_router
 from pathlib import Path
 
+# Import NLP utilities
+from src.utils.nlp.lemmatization import get_word_base_form, get_word_info
+
 # Import custom JSON encoder for MongoDB ObjectId
 from src.api.utils.encoders import MongoJSONEncoder, jsonable_encoder_with_objectid
 
@@ -178,6 +181,14 @@ class SimpleArticleRequest(BaseModel):
     tag_ids: Optional[List[str]] = None  # Optional tag_ids to filter by
     max_sources: int = 10  # Default max sources
     group_and_rewrite: bool = True  # Whether to group articles
+
+
+# Word Lemmatization Request Model
+class WordLemmatizationRequest(BaseModel):
+    word: str = Field(..., description="Word to convert to base/infinitive form")
+    language: str = Field(..., description="ISO language code (e.g., 'en', 'ko', 'es')")
+    context: Optional[str] = Field(None, description="Optional surrounding text for better disambiguation")
+    detailed: bool = Field(False, description="Whether to return detailed word information")
 
 # Endpoint to get a quiz for an article
 @app.get("/api/quizzes/{article_id}")
@@ -796,12 +807,66 @@ async def clear_cache(cache: ArticleCache = Depends(get_article_cache)):
     return {"message": "Cache cleared"}
 
 # Clear the MongoDB articles collection
-@app.post("/db/clear-articles")
+@app.delete("/api/articles/all", tags=["articles"])
 async def clear_articles(db: DatabaseService = Depends(get_database_service)):
     """Clear all articles from MongoDB collection"""
-    result = await db.articles_collection.delete_many({})  # Empty filter matches all documents
-    count = result.deleted_count
-    return {"message": f"Cleared {count} articles from the database"}
+    try:
+        result = await db.articles_collection.delete_many({})
+        return {"message": f"Deleted {result.deleted_count} articles"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Word lemmatization endpoint
+@app.post("/api/vocabulary/lemmatize", tags=["vocabulary"])
+async def lemmatize_word(request: WordLemmatizationRequest):
+    """
+    Convert a word to its base/infinitive form for any supported language.
+    
+    This endpoint is crucial for flashcard creation and vocabulary tracking as it 
+    ensures that conjugated forms of words (like "running" -> "run") are properly 
+    normalized in the user's vocabulary bank.
+    
+    Languages supported with advanced features:
+    - English (en)
+    - Spanish (es)
+    - French (fr)
+    - German (de)
+    - Korean (ko)
+    - Japanese (ja)
+    - And other languages with basic support
+    
+    Returns either just the base form or detailed word information based on the 'detailed' parameter.
+    """
+    try:
+        # Input validation
+        if not request.word or not request.word.strip():
+            raise HTTPException(status_code=400, detail="Word cannot be empty")
+            
+        if not request.language or len(request.language) < 2:
+            raise HTTPException(status_code=400, detail="Invalid language code")
+        
+        # Log the request
+        logger.info(f"Lemmatizing word: {request.word} in language: {request.language}")
+        
+        # Get detailed information or just the base form
+        if request.detailed:
+            result = get_word_info(
+                word=request.word,
+                lang_code=request.language,
+                context=request.context
+            )
+            return result
+        else:
+            # Just get the base form
+            base_form = get_word_base_form(
+                word=request.word,
+                lang_code=request.language,
+                context=request.context
+            )
+            return {"original_word": request.word, "base_form": base_form}
+    except Exception as e:
+        logger.error(f"Error in lemmatize_word: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing lemmatization: {str(e)}")
 
 # In-memory storage for bulk fetch operations
 bulk_fetch_operations = {}

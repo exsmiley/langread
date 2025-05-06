@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -41,7 +42,8 @@ interface UserProfile {
   studied_words: string[];
 }
 
-const ProfilePage = () => {
+const ProfilePage: React.FC = () => {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -176,7 +178,7 @@ const ProfilePage = () => {
   if (isLoading) {
     return (
       <Container maxW="container.lg" py={8}>
-        <Text>Loading profile...</Text>
+        <Text fontSize="xl">{t('profile.loading')}</Text>
       </Container>
     );
   }
@@ -343,7 +345,7 @@ const ProfilePage = () => {
                 <Stack spacing={4}>
                   <Box>
                     <Text fontWeight="bold" mb={1}>
-                      Member since
+                      {t('profile.memberSince')}
                     </Text>
                     <Text>
                       {new Date(profile.created_at).toLocaleDateString()}
@@ -352,7 +354,7 @@ const ProfilePage = () => {
                   
                   <Box>
                     <Text fontWeight="bold" mb={1}>
-                      Learning Progress
+                      {t('profile.learningProgress')}
                     </Text>
                     <Text>
                       {profile.saved_articles?.length || 0} saved articles
@@ -371,7 +373,7 @@ const ProfilePage = () => {
                 variant="outline"
                 onClick={handleSignOut}
               >
-                Sign Out
+                {t('profile.signOut')}
               </Button>
             </Box>
           </TabPanel>
@@ -386,11 +388,11 @@ const ProfilePage = () => {
               p={6}
             >
               <Heading size="md" mb={4}>
-                Saved Articles
+                {t('profile.savedArticles')}
               </Heading>
               
               {profile.saved_articles && profile.saved_articles.length > 0 ? (
-                <Text>Feature coming soon</Text>
+                <Text>{t('profile.featureComingSoon')}</Text>
               ) : (
                 <Alert status="info">
                   <AlertIcon />
@@ -414,7 +416,7 @@ const ProfilePage = () => {
               </Heading>
               
               {profile.studied_words && profile.studied_words.length > 0 ? (
-                <Text>Feature coming soon</Text>
+                <Text>{t('profile.featureComingSoon')}</Text>
               ) : (
                 <Alert status="info">
                   <AlertIcon />
@@ -434,15 +436,15 @@ const ProfilePage = () => {
               p={6}
             >
               <Heading size="md" mb={4}>
-                Account Settings
+                {t('profile.accountSettings')}
               </Heading>
               
               <Stack spacing={4}>
                 <Button colorScheme="blue" variant="outline">
-                  Change Password
+                  {t('profile.changePassword')}
                 </Button>
                 <Button colorScheme="red" variant="outline">
-                  Delete Account
+                  {t('profile.deleteAccount')}
                 </Button>
               </Stack>
             </Box>

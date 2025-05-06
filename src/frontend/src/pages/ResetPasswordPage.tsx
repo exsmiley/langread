@@ -21,8 +21,10 @@ import {
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 const ResetPasswordPage: React.FC = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -45,23 +47,23 @@ const ResetPasswordPage: React.FC = () => {
     if (tokenParam) {
       setToken(tokenParam);
     } else {
-      setError('No reset token provided. Please request a new password reset link.');
+      setError(t('auth.noResetToken'));
     }
-  }, [location]);
+  }, [location, t]);
   
   const validatePasswords = () => {
     if (!newPassword) {
-      setPasswordError('Password is required');
+      setPasswordError(t('auth.passwordRequired'));
       return false;
     }
     
     if (newPassword.length < 8) {
-      setPasswordError('Password must be at least 8 characters long');
+      setPasswordError(t('auth.passwordLength'));
       return false;
     }
     
     if (newPassword !== confirmPassword) {
-      setPasswordError('Passwords do not match');
+      setPasswordError(t('auth.passwordsMismatch'));
       return false;
     }
     
@@ -92,11 +94,11 @@ const ResetPasswordPage: React.FC = () => {
           navigate('/signin');
         }, 5000);
       } else {
-        setError('Failed to reset password. Please try again.');
+        setError(t('auth.resetFailed'));
       }
     } catch (err: any) {
       console.error('Error resetting password:', err);
-      setError(err.response?.data?.detail || 'Failed to reset password. Please try again.');
+      setError(err.response?.data?.detail || t('auth.resetFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -106,9 +108,9 @@ const ResetPasswordPage: React.FC = () => {
     <Container maxW="lg" py={{ base: '12', md: '24' }} px={{ base: '0', sm: '8' }}>
       <Stack spacing="8">
         <Stack spacing="6" align="center">
-          <Heading size="xl" fontWeight="bold">Set New Password</Heading>
+          <Heading size="xl" fontWeight="bold">{t('auth.setNewPassword')}</Heading>
           <Text color="gray.500">
-            Create a new password for your Lingogi account
+            {t('auth.createNewPassword')}
           </Text>
         </Stack>
         
@@ -124,17 +126,17 @@ const ResetPasswordPage: React.FC = () => {
           {!token ? (
             <Alert status="error" borderRadius="md">
               <AlertIcon />
-              No reset token provided. Please request a new password reset link.
+              {t('auth.noResetToken')}
             </Alert>
           ) : isSuccess ? (
             <Stack spacing="6">
               <Alert status="success" borderRadius="md">
                 <AlertIcon />
-                Your password has been reset successfully. You will be redirected to the sign in page in a few seconds.
+                {t('auth.resetSuccess')}
               </Alert>
               
               <Link as={RouterLink} to="/signin" color="blue.500" textAlign="center">
-                Sign in now
+                {t('auth.signInNow')}
               </Link>
             </Stack>
           ) : (
@@ -149,17 +151,18 @@ const ResetPasswordPage: React.FC = () => {
               <form onSubmit={handleSubmit}>
                 <Stack spacing="5">
                   <FormControl id="password" isRequired isInvalid={!!passwordError}>
-                    <FormLabel>New Password</FormLabel>
+                    <FormLabel>{t('auth.newPassword')}</FormLabel>
                     <InputGroup>
                       <Input
                         name="password"
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder={t('auth.passwordPlaceholder')}
                       />
                       <InputRightElement h="full">
                         <IconButton
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                           icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                           variant="ghost"
                           onClick={() => setShowPassword((showPassword) => !showPassword)}
@@ -170,12 +173,13 @@ const ResetPasswordPage: React.FC = () => {
                   </FormControl>
                   
                   <FormControl id="confirmPassword" isRequired isInvalid={!!passwordError}>
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>{t('auth.confirmPassword')}</FormLabel>
                     <Input
                       name="confirmPassword"
                       type={showPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder={t('auth.confirmPasswordPlaceholder')}
                     />
                     {passwordError && <FormErrorMessage>{passwordError}</FormErrorMessage>}
                   </FormControl>
@@ -187,16 +191,16 @@ const ResetPasswordPage: React.FC = () => {
                     fontSize="md"
                     isLoading={isLoading}
                   >
-                    Reset Password
+                    {t('auth.resetPassword')}
                   </Button>
                 </Stack>
               </form>
               
               <Stack pt={6}>
                 <Text align="center">
-                  Remember your password?{' '}
+                  {t('auth.rememberPassword')}{' '}
                   <Link as={RouterLink} to="/signin" color="blue.500">
-                    Sign in
+                    {t('auth.signIn')}
                   </Link>
                 </Text>
               </Stack>

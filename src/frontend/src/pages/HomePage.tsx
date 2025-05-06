@@ -19,29 +19,50 @@ import {
   Image
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
 
 
 
-// Language options
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'fr', label: 'French' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'de', label: 'German' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ru', label: 'Russian' }
-];
+// Language options will be created dynamically with translations
 
 const HomePage = () => {
-  // Language and difficulty states
-  const [nativeLanguage, setNativeLanguage] = useState('en');
-  const [targetLanguage, setTargetLanguage] = useState('ko');
-  const [difficulty, setDifficulty] = useState('intermediate');
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  
+  // Language and difficulty states - use user's native language if available
+  const [nativeLanguage, setNativeLanguage] = useState(() => {
+    return user?.native_language || 'en';
+  });
+  
+  // For target language, use user's default language or first additional language
+  const [targetLanguage, setTargetLanguage] = useState(() => {
+    if (user?.additional_languages && user.additional_languages.length > 0) {
+      const defaultLang = user.additional_languages.find(lang => lang.isDefault);
+      if (defaultLang) return defaultLang.language;
+      return user.additional_languages[0].language;
+    }
+    return user?.learning_language || 'ko';
+  });
+  
+  const [difficulty, setDifficulty] = useState(() => {
+    return user?.proficiency || 'intermediate';
+  });
   
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Language options with translations
+  const languageOptions = [
+    { value: 'en', label: t('settings.languages.english') },
+    { value: 'ko', label: t('settings.languages.korean') },
+    { value: 'fr', label: t('settings.languages.french') },
+    { value: 'es', label: t('settings.languages.spanish') },
+    { value: 'de', label: t('settings.languages.german') },
+    { value: 'ja', label: t('settings.languages.japanese') },
+    { value: 'zh', label: t('settings.languages.chinese') },
+    { value: 'ru', label: t('settings.languages.russian') }
+  ];
   
   const toast = useToast();
   const navigate = useNavigate();
@@ -57,7 +78,7 @@ const HomePage = () => {
     // Navigate to the articles page with default parameters
     setTimeout(() => {
       setIsLoading(false);
-      navigate(`/articles?nativeLanguage=${nativeLanguage}&targetLanguage=${targetLanguage}&difficulty=${difficulty}`);
+      navigate(`/articles?native=${nativeLanguage}&target=${targetLanguage}&difficulty=${difficulty}`);
     }, 500);
   };
   
@@ -79,15 +100,14 @@ const HomePage = () => {
         >
           <Flex align="center">
             <Box mr={4}>
-              <Image src="/images/mascot.png" alt="Lingogi mascot" boxSize="60px" borderRadius="full" />
+              <Image src="/images/mascot.png" alt={t('common.mascot')} boxSize="60px" borderRadius="full" />
             </Box>
             <Heading as="h1" size="2xl">
-              Lingogi
+              {t('common.appName')}
             </Heading>
           </Flex>
           <Text fontSize="xl" color="gray.600">
-            Improve your language skills by reading authentic content in your target language.
-            Discover articles on any topic, translate words with a hover, and build your vocabulary.
+            {t('home.description')}
           </Text>
           <Box 
             display="flex"
@@ -100,7 +120,7 @@ const HomePage = () => {
               colorScheme="blue" 
               onClick={handleSubmit}
               isLoading={isLoading}
-              loadingText="Searching..."
+              loadingText={t('home.searching')}
               size="lg"
               px={10}
               py={7}
@@ -109,7 +129,7 @@ const HomePage = () => {
               _hover={{ transform: "translateY(-2px)", boxShadow: "lg" }}
               transition="all 0.2s"
             >
-              Find Articles
+              {t('home.findArticles')}
             </Button>
           </Box>
         </VStack>
@@ -119,7 +139,7 @@ const HomePage = () => {
       
       <VStack spacing={10} py={16} px={8}>
         <Heading as="h2" size="xl" textAlign="center">
-          How Lingogi Works
+          {t('home.howItWorks')}
         </Heading>
         
         <Stack 
@@ -130,23 +150,23 @@ const HomePage = () => {
           spacing={8}
         >
           <FeatureCard 
-            title="Discover Content" 
-            description="Search for articles, blogs, stories and more in your target language. Our AI finds the best content for your language level."
+            title={t('home.features.discoverContent.title')} 
+            description={t('home.features.discoverContent.description')}
             iconUrl="🔍"
           />
           <FeatureCard 
-            title="Read with Assistance" 
-            description="Hover over words to see translations. The app adapts to your level and helps you understand complex text."
+            title={t('home.features.readWithAssistance.title')} 
+            description={t('home.features.readWithAssistance.description')}
             iconUrl="📚"
           />
           <FeatureCard 
-            title="Build Vocabulary" 
-            description="Every word you encounter is saved to your vocabulary bank. Create flashcards and track your progress."
+            title={t('home.features.buildVocabulary.title')} 
+            description={t('home.features.buildVocabulary.description')}
             iconUrl="📝"
           />
           <FeatureCard 
-            title="Test Comprehension" 
-            description="Test your understanding with auto-generated quizzes based on what you've read."
+            title={t('home.features.testComprehension.title')} 
+            description={t('home.features.testComprehension.description')}
             iconUrl="✅"
           />
         </Stack>

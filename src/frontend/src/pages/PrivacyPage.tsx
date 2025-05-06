@@ -8,125 +8,127 @@ import {
   Divider,
   useColorModeValue,
 } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 
 const PrivacyPage = () => {
+  const { t } = useTranslation();
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
 
   return (
     <Container maxW="container.xl" py={10}>
       <VStack spacing={10} align="start">
-        <Heading as="h1" size="2xl">Privacy Policy</Heading>
+        <Heading as="h1" size="2xl">{t('privacy.title')}</Heading>
         
         <Divider />
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Information We Collect</Heading>
+          <Heading as="h2" size="lg">{t('privacy.collect.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            At Lingogi, we take your privacy seriously. We only collect the information necessary to provide you with a personalized language learning experience.
+            {t('privacy.collect.intro')}
           </Text>
           <Text fontSize="md" lineHeight="tall">
-            We collect the following types of information:
+            {t('privacy.collect.types')}
           </Text>
           <Box as="ul" pl={5} alignSelf="stretch">
             <Box as="li" pb={2}>
-              <Text>Personal information you provide (email if you create an account)</Text>
+              <Text>{t('privacy.collect.item1')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Language preferences and learning progress</Text>
+              <Text>{t('privacy.collect.item2')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Vocabulary lists and saved articles</Text>
+              <Text>{t('privacy.collect.item3')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Usage data and interaction patterns</Text>
+              <Text>{t('privacy.collect.item4')}</Text>
             </Box>
           </Box>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">How We Use Your Information</Heading>
+          <Heading as="h2" size="lg">{t('privacy.use.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            We use the information we collect to:
+            {t('privacy.use.intro')}
           </Text>
           <Box as="ul" pl={5} alignSelf="stretch">
             <Box as="li" pb={2}>
-              <Text>Provide and maintain our language learning service</Text>
+              <Text>{t('privacy.use.item1')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Personalize your learning experience</Text>
+              <Text>{t('privacy.use.item2')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Track your progress and suggest appropriate content</Text>
+              <Text>{t('privacy.use.item3')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Improve our platform based on usage patterns</Text>
+              <Text>{t('privacy.use.item4')}</Text>
             </Box>
           </Box>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Cookies and Similar Technologies</Heading>
+          <Heading as="h2" size="lg">{t('privacy.cookies.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            We use cookies to remember your language preferences and learning progress. Cookies help us provide features like automatic login and remembering your vocabulary lists.
+            {t('privacy.cookies.info')}
           </Text>
           <Text fontSize="md" lineHeight="tall">
-            You can control cookies through your browser settings. However, disabling cookies may limit your access to certain features of our service.
-          </Text>
-        </VStack>
-        
-        <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Data Security</Heading>
-          <Text fontSize="md" lineHeight="tall">
-            Your vocabulary and saved articles are stored securely and are never shared with third parties without your explicit consent. We implement appropriate security measures to protect your personal information from unauthorized access or disclosure.
+            {t('privacy.cookies.control')}
           </Text>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Third-Party Services</Heading>
+          <Heading as="h2" size="lg">{t('privacy.security.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            Lingogi may use third-party services for analytics, hosting, and other functions. These services may collect information sent by your browser as part of a web page request. They have their own privacy policies regarding the information we are required to provide to them.
+            {t('privacy.security.info')}
           </Text>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Your Rights</Heading>
+          <Heading as="h2" size="lg">{t('privacy.thirdParty.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            You have the right to:
+            {t('privacy.thirdParty.info')}
+          </Text>
+        </VStack>
+        
+        <VStack spacing={6} align="start" width="100%">
+          <Heading as="h2" size="lg">{t('privacy.rights.title')}</Heading>
+          <Text fontSize="md" lineHeight="tall">
+            {t('privacy.rights.intro')}
           </Text>
           <Box as="ul" pl={5} alignSelf="stretch">
             <Box as="li" pb={2}>
-              <Text>Access the personal information we have about you</Text>
+              <Text>{t('privacy.rights.item1')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Correct inaccuracies in your personal information</Text>
+              <Text>{t('privacy.rights.item2')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Delete your personal information</Text>
+              <Text>{t('privacy.rights.item3')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Object to the processing of your personal information</Text>
+              <Text>{t('privacy.rights.item4')}</Text>
             </Box>
             <Box as="li" pb={2}>
-              <Text>Export your data in a portable format</Text>
+              <Text>{t('privacy.rights.item5')}</Text>
             </Box>
           </Box>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Changes to This Policy</Heading>
+          <Heading as="h2" size="lg">{t('privacy.changes.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the effective date.
+            {t('privacy.changes.info')}
           </Text>
         </VStack>
         
         <VStack spacing={6} align="start" width="100%">
-          <Heading as="h2" size="lg">Contact Us</Heading>
+          <Heading as="h2" size="lg">{t('privacy.contact.title')}</Heading>
           <Text fontSize="md" lineHeight="tall">
-            For more information about our data practices, please contact us at <strong>privacy@lingogi.com</strong>.
+            {t('privacy.contact.info')} <strong>privacy@lingogi.com</strong>.
           </Text>
           <Text fontSize="md" lineHeight="tall">
-            Last updated: April 30, 2025
+            {t('privacy.lastUpdated')}: {t('privacy.updateDate')}
           </Text>
         </VStack>
       </VStack>

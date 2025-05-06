@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Text,
@@ -62,7 +63,12 @@ const TagSelector: React.FC<TagSelectorProps> = ({
   const [filteredTags, setFilteredTags] = useState<TagType[]>([]);
   const [selectedTags, setSelectedTags] = useState<TagType[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const { t } = useTranslation();
+  
+  const [
+    searchQuery,
+    setSearchQuery
+  ] = useState('');
   const [nativeLanguage, setNativeLanguage] = useState(defaultNativeLanguage);
   const [targetLanguage, setTargetLanguage] = useState(defaultTargetLanguage);
   const [loading, setLoading] = useState(true);
@@ -285,10 +291,10 @@ const TagSelector: React.FC<TagSelectorProps> = ({
     <Box>
       <VStack spacing={6} align="stretch">
         <Box>
-          <Heading size="md" mb={2}>Language Settings</Heading>
+          <Heading size="md" mb={2}>{t('components.tagSelector.languageSettings')}</Heading>
           <Flex direction={{ base: 'column', md: 'row' }} gap={4}>
             <Box flex="1">
-              <Text mb={1}>Your Native Language</Text>
+              <Text mb={1}>{t('components.tagSelector.nativeLanguage')}</Text>
               <Select
                 value={nativeLanguage}
                 onChange={(e) => handleLanguageChange(e.target.value, 'native')}
@@ -299,7 +305,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
               </Select>
             </Box>
             <Box flex="1">
-              <Text mb={1}>Target Language to Study</Text>
+              <Text mb={1}>{t('components.tagSelector.targetLanguage')}</Text>
               <Select
                 value={targetLanguage}
                 onChange={(e) => handleLanguageChange(e.target.value, 'target')}
@@ -315,9 +321,9 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         </Box>
 
         <Box>
-          <Heading size="md" mb={2}>Selected Topics</Heading>
+          <Heading size="md" mb={2}>{t('components.tagSelector.selectedTopics')}</Heading>
           {selectedTags.length === 0 ? (
-            <Text color="gray.500">No topics selected. Select topics below to filter articles.</Text>
+            <Text color="gray.500">{t('components.tagSelector.noTopicsSelected')}</Text>
           ) : (
             <Wrap spacing={2}>
               {selectedTags.map(tag => (
@@ -338,13 +344,13 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         </Box>
 
         <Box>
-          <Heading size="md" mb={2}>Available Topics</Heading>
+          <Heading size="md" mb={2}>{t('components.tagSelector.availableTopics')}</Heading>
           <InputGroup mb={4}>
             <InputLeftElement pointerEvents="none">
               <SearchIcon color="gray.300" />
             </InputLeftElement>
             <Input 
-              placeholder="Search topics..." 
+              placeholder={t('components.tagSelector.searchTopics')} 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -355,7 +361,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
               <Spinner />
             </Flex>
           ) : filteredTags.length === 0 ? (
-            <Text color="gray.500">No topics found. Try a different search or language.</Text>
+            <Text color="gray.500">{t('components.tagSelector.noTopicsFound')}</Text>
           ) : (
             <Wrap spacing={2}>
               {filteredTags.map(tag => (

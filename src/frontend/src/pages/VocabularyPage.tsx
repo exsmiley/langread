@@ -31,6 +31,8 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon, StarIcon, AddIcon } from '@chakra-ui/icons';
 import { FaLanguage, FaBook, FaRegStar, FaStar } from 'react-icons/fa';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 // Mock vocabulary data
 const MOCK_VOCABULARY = [
@@ -186,13 +188,16 @@ const MOCK_ARTICLE_REFERENCES: { [key: string]: ArticleReference } = {
 };
 
 const VocabularyPage = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  
   const [vocabulary, setVocabulary] = useState<VocabularyItem[]>([]);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<string>('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.learning_language || 'all');
   
   const toast = useToast();
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -350,7 +355,7 @@ const VocabularyPage = () => {
     return (
       <Container maxW="container.xl" centerContent py={10}>
         <Spinner size="xl" thickness="4px" color="blue.500" />
-        <Text mt={4}>Loading vocabulary data...</Text>
+        <Text mt={4}>{t('vocabulary.loading')}</Text>
       </Container>
     );
   }
@@ -360,10 +365,10 @@ const VocabularyPage = () => {
       <VStack spacing={6} align="stretch">
         <Box>
           <Heading as="h1" size="xl">
-            Your Vocabulary Bank
+            {t('vocabulary.title')}
           </Heading>
           <Text mt={2} color="gray.600">
-            Track your progress and create flashcards from words you've encountered in articles.
+            {t('vocabulary.description')}
           </Text>
         </Box>
         
@@ -381,7 +386,7 @@ const VocabularyPage = () => {
                   <SearchIcon color="gray.400" />
                 </InputLeftElement>
                 <Input 
-                  placeholder="Search words, translations..." 
+                  placeholder={t('vocabulary.searchPlaceholder')} 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -392,16 +397,16 @@ const VocabularyPage = () => {
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
               >
-                <option value="all">All Languages</option>
-                <option value="ko">Korean (한국어)</option>
-                <option value="ja">Japanese (日本語)</option>
-                <option value="zh">Chinese (中文)</option>
-                <option value="es">Spanish (Español)</option>
+                <option value="all">{t('vocabulary.allLanguages')}</option>
+                <option value="ko">{t('settings.languages.korean')} (한국어)</option>
+                <option value="ja">{t('settings.languages.japanese')} (日本語)</option>
+                <option value="zh">{t('settings.languages.chinese')} (中文)</option>
+                <option value="es">{t('settings.languages.spanish')} (Español)</option>
               </Select>
             </HStack>
             
             <Box>
-              <Text fontWeight="medium" mb={2}>Filter by Tags:</Text>
+              <Text fontWeight="medium" mb={2}>{t('vocabulary.filterByTags')}</Text>
               <Flex flexWrap="wrap" gap={2}>
                 {allTags.map(tag => (
                   <Tag 
@@ -419,13 +424,13 @@ const VocabularyPage = () => {
             </Box>
             
             <Box>
-              <Text fontWeight="medium" mb={2}>Filter by Article:</Text>
+              <Text fontWeight="medium" mb={2}>{t('vocabulary.filterByArticle')}</Text>
               <Select 
-                placeholder="All Articles" 
+                placeholder={t('vocabulary.allArticles')} 
                 value={selectedArticle}
                 onChange={(e) => setSelectedArticle(e.target.value)}
               >
-                <option value="">All Articles</option>
+                <option value="">{t('vocabulary.allArticles')}</option>
                 {articleReferences.map(ref => (
                   <option key={ref} value={ref}>
                     {MOCK_ARTICLE_REFERENCES[ref]?.title || ref}
@@ -454,7 +459,7 @@ const VocabularyPage = () => {
                   borderColor={borderColor}
                 >
                   <Text fontSize="lg" color="gray.500">
-                    No vocabulary items found matching your filters.
+                    {t('vocabulary.noItemsFound')}
                   </Text>
                   <Button 
                     mt={4} 
@@ -467,7 +472,7 @@ const VocabularyPage = () => {
                       setSelectedLanguage('all');
                     }}
                   >
-                    Clear Filters
+                    {t('vocabulary.clearFilters')}
                   </Button>
                 </Box>
               ) : (
@@ -525,7 +530,7 @@ const VocabularyPage = () => {
                         <VStack align="end" spacing={2}>
                           {renderMasteryLevel(word.mastery_level)}
                           
-                          <Tooltip label="Create flashcard">
+                          <Tooltip label={t('vocabulary.createFlashcard')}>
                             <Button 
                               size="sm" 
                               colorScheme="blue" 
@@ -555,7 +560,7 @@ const VocabularyPage = () => {
                   borderColor={borderColor}
                 >
                   <Text fontSize="lg" color="gray.500">
-                    No flashcards found matching your filters.
+                    {t('vocabulary.noFlashcardsFound')}
                   </Text>
                   <Button 
                     mt={4} 
@@ -568,7 +573,7 @@ const VocabularyPage = () => {
                       setSelectedLanguage('all');
                     }}
                   >
-                    Clear Filters
+                    {t('vocabulary.clearFilters')}
                   </Button>
                 </Box>
               ) : (
@@ -580,15 +585,15 @@ const VocabularyPage = () => {
                       isDisabled={filteredFlashcards.length === 0}
                       onClick={() => {
                         toast({
-                          title: 'Study session started',
-                          description: 'Flashcard study feature coming soon!',
+                          title: t('vocabulary.studySessionStarted'),
+                          description: t('vocabulary.flashcardStudyComingSoon'),
                           status: 'info',
                           duration: 3000,
                           isClosable: true,
                         });
                       }}
                     >
-                      Study Flashcards
+                      {t('vocabulary.studyFlashcards')}
                     </Button>
                   </Flex>
                   
@@ -629,12 +634,12 @@ const VocabularyPage = () => {
                           
                           <Flex mt="auto" w="100%" justifyContent="space-between" alignItems="center">
                             <Text fontSize="xs" color="gray.500">
-                              Last reviewed: {formatDate(card.last_reviewed || '')}
+                              {t('vocabulary.lastReviewed')}: {formatDate(card.last_reviewed || '')}
                             </Text>
                             
                             <HStack>
                               <Badge colorScheme={card.times_reviewed > 0 ? "green" : "gray"}>
-                                {card.times_reviewed} reviews
+                                {card.times_reviewed} {t('vocabulary.reviews')}
                               </Badge>
                             </HStack>
                           </Flex>

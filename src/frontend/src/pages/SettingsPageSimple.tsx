@@ -11,6 +11,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { getToken } from '../utils/tokenUtils';
 
@@ -19,6 +20,7 @@ import { getToken } from '../utils/tokenUtils';
  */
 const SettingsPageSimple = () => {
   // Hooks at the top level
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const auth = useAuth();
@@ -47,7 +49,7 @@ const SettingsPageSimple = () => {
     try {
       const token = getToken();
       if (!token) {
-        setMessage('No authentication token found. Please sign in again.');
+        setMessage(t('settings.noAuthToken'));
         setIsLoading(false);
         return;
       }
@@ -63,11 +65,11 @@ const SettingsPageSimple = () => {
       
       if (response.ok) {
         const data = await response.json();
-        setMessage(`Connected successfully! User: ${data.name}`);
+        setMessage(t('settings.connectedSuccessfully', { name: data.name }));
         
         toast({
-          title: 'Connection successful',
-          description: 'Backend API is accessible',
+          title: t('settings.connectionSuccessful'),
+          description: t('settings.backendAccessible'),
           status: 'success',
           duration: 5000,
           isClosable: true,
@@ -77,11 +79,11 @@ const SettingsPageSimple = () => {
       }
     } catch (err: any) {
       console.error('Connection test failed:', err);
-      setMessage(`Connection failed: ${err?.message || 'Unknown error'}`);
+      setMessage(t('settings.connectionFailed', { error: err?.message || t('settings.unknownError') }));
       
       toast({
-        title: 'Connection failed',
-        description: 'Could not reach the backend server',
+        title: t('settings.connectionFailed'),
+        description: t('settings.couldNotReachBackend'),
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -98,7 +100,7 @@ const SettingsPageSimple = () => {
         <Center h="200px">
           <VStack>
             <Spinner size="xl" />
-            <Text mt={4}>Loading your profile...</Text>
+            <Text mt={4}>{t('settings.loadingProfile')}</Text>
           </VStack>
         </Center>
       </Container>
@@ -108,18 +110,18 @@ const SettingsPageSimple = () => {
   return (
     <Container maxW="container.md" py={10}>
       <VStack spacing={6} align="stretch">
-        <Heading size="lg">Settings (Simple Version)</Heading>
+        <Heading size="lg">{t('settings.simpleVersion')}</Heading>
         
         <Box p={6} borderWidth={1} borderRadius="md">
           <VStack spacing={4} align="stretch">
-            <Text>{user ? `Logged in as: ${user.name}` : 'Not logged in'}</Text>
+            <Text>{user ? t('settings.loggedInAs', { name: user.name }) : t('settings.notLoggedIn')}</Text>
             
             <Button 
               colorScheme="blue" 
               onClick={testBackendConnection}
               isLoading={isLoading}
             >
-              Test Backend Connection
+              {t('settings.testBackendConnection')}
             </Button>
             
             {message && (

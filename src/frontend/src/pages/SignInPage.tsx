@@ -22,8 +22,10 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import axios from 'axios';
 import Cookies from 'js-cookie';
+import { useTranslation } from 'react-i18next';
 
 const SignInPage = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -50,10 +52,10 @@ const SignInPage = () => {
         navigate('/');
         console.log('Sign in successful, redirecting to home page');
       } else {
-        setError('Invalid credentials');
+        setError(t('auth.invalidCredentials'));
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to sign in. Please check your credentials.');
+      setError(err.response?.data?.detail || t('auth.signInFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -63,9 +65,9 @@ const SignInPage = () => {
     <Container maxW="lg" py={{ base: '12', md: '24' }} px={{ base: '0', sm: '8' }}>
       <Stack spacing="8">
         <Stack spacing="6" align="center">
-          <Heading size="xl" fontWeight="bold">Sign in to your account</Heading>
+          <Heading size="xl" fontWeight="bold">{t('auth.signInTitle')}</Heading>
           <Text color="gray.500">
-            Enter your email and password to access your account
+            {t('auth.signInSubtext')}
           </Text>
         </Stack>
         
@@ -88,17 +90,17 @@ const SignInPage = () => {
           <form onSubmit={handleSubmit}>
             <Stack spacing="6">
               <FormControl id="email" isRequired>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t('auth.email')}</FormLabel>
                 <Input 
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your.email@example.com"
+                  placeholder={t('auth.emailPlaceholder')}
                 />
               </FormControl>
               
               <FormControl id="password" isRequired>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>{t('auth.password')}</FormLabel>
                 <InputGroup>
                   <Input 
                     type={showPassword ? 'text' : 'password'} 
@@ -108,7 +110,7 @@ const SignInPage = () => {
                   />
                   <InputRightElement>
                     <IconButton
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                       icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                       onClick={() => setShowPassword(!showPassword)}
                       variant="ghost"
@@ -126,15 +128,15 @@ const SignInPage = () => {
                 fontSize="md"
                 isLoading={isLoading}
               >
-                Sign in
+                {t('auth.signIn')}
               </Button>
             </Stack>
           </form>
         </Box>
         
         <Stack spacing="3" align="center">
-          <Text>Don't have an account? <Link as={RouterLink} to="/signup" color="blue.500">Sign up</Link></Text>
-          <Link as={RouterLink} to="/forgot-password" color="blue.500">Forgot password?</Link>
+          <Text>{t('auth.noAccount')} <Link as={RouterLink} to="/signup" color="blue.500">{t('auth.signUp')}</Link></Text>
+          <Link as={RouterLink} to="/forgot-password" color="blue.500">{t('auth.forgotPassword')}</Link>
         </Stack>
       </Stack>
     </Container>

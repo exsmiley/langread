@@ -14,8 +14,10 @@ import {
   Divider,
   Link,
 } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 
 const AboutPage = () => {
+  const { t } = useTranslation();
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -28,7 +30,7 @@ const AboutPage = () => {
           <Box mr={4}>
             <Image 
               src="/images/mascot.png" 
-              alt="Lingogi mascot" 
+              alt={t('common.mascot')} 
               boxSize="80px" 
               borderRadius="full" 
               border="2px solid"
@@ -36,57 +38,57 @@ const AboutPage = () => {
             />
           </Box>
           <Heading as="h1" size="2xl">
-            About Lingogi
+            {t('about.title')} {t('common.appName')}
           </Heading>
         </Flex>
         <Text fontSize="xl" maxW="3xl">
-          Lingogi is a next-generation language learning platform that helps you improve your language skills through authentic content, context-aware translations, and intelligent vocabulary building.
+          {t('about.description')}
         </Text>
       </VStack>
 
       {/* Our mission */}
       <Box bg={bgColor} p={8} borderRadius="lg" mb={16}>
         <VStack spacing={6}>
-          <Heading as="h2" size="xl">Our Mission</Heading>
+          <Heading as="h2" size="xl">{t('about.mission.title')}</Heading>
           <Text fontSize="lg" textAlign="center" maxW="3xl">
-            Lingogi's mission is to make language learning more engaging and effective by connecting learners with authentic content in their target language. We believe that reading real articles, understanding words in context, and building vocabulary systematically is the key to language mastery.
+            {t('about.mission.description')}
           </Text>
         </VStack>
       </Box>
 
       {/* Our story */}
       <VStack spacing={8} mb={16}>
-        <Heading as="h2" size="xl">Our Story</Heading>
+        <Heading as="h2" size="xl">{t('about.story.title')}</Heading>
         <Text fontSize="lg">
-          The name "Lingogi" is a blend of "lingo" (language) and "gi" (기), the Korean word for tool or device. Our mascot, a cute meat character with a halo, plays on the Korean word "gogi" (고기/meat) and creates a memorable visual identity with cultural relevance to Korean cuisine.
+          {t('about.story.part1')}
         </Text>
         <Text fontSize="lg">
-          Lingogi started with a focus on Korean language learners who speak English, but our platform is designed to expand to support multiple language pairs, helping learners worldwide connect with authentic content in their target languages.
+          {t('about.story.part2')}
         </Text>
       </VStack>
 
       {/* Key features */}
       <Box mb={16}>
-        <Heading as="h2" size="xl" mb={8} textAlign="center">Key Features</Heading>
+        <Heading as="h2" size="xl" mb={8} textAlign="center">{t('about.features.title')}</Heading>
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={10}>
           <FeatureCard 
-            title="Article Aggregation"
-            description="Discover content from various sources, filtered and organized by difficulty level and topic."
+            title={t('about.features.article.title')}
+            description={t('about.features.article.description')}
             icon="🔍"
           />
           <FeatureCard 
-            title="Context-Aware Translation"
-            description="Translate words and phrases with consideration for the surrounding context, providing more accurate meanings."
+            title={t('about.features.translation.title')}
+            description={t('about.features.translation.description')}
             icon="🔤"
           />
           <FeatureCard 
-            title="Vocabulary Building"
-            description="Automatically save words you've looked up and review them with our flashcard system."
+            title={t('about.features.vocabulary.title')}
+            description={t('about.features.vocabulary.description')}
             icon="📚"
           />
           <FeatureCard 
-            title="Comprehension Testing"
-            description="Test your understanding with auto-generated quizzes based on article content."
+            title={t('about.features.comprehension.title')}
+            description={t('about.features.comprehension.description')}
             icon="✏️"
           />
         </SimpleGrid>
@@ -94,12 +96,12 @@ const AboutPage = () => {
 
       {/* Team section */}
       <Box mb={16}>
-        <Heading as="h2" size="xl" mb={8} textAlign="center">Meet Our Mascot</Heading>
+        <Heading as="h2" size="xl" mb={8} textAlign="center">{t('about.mascot.title')}</Heading>
         <Flex direction={{ base: 'column', md: 'row' }} align="center" justify="center">
           <Box mr={{ base: 0, md: 10 }} mb={{ base: 6, md: 0 }}>
             <Image 
               src="/images/mascot.png" 
-              alt="Gogi - The Lingogi Mascot" 
+              alt={t('about.mascot.alt')} 
               borderRadius="md"
               boxSize="200px"
               objectFit="cover"
@@ -108,9 +110,9 @@ const AboutPage = () => {
             />
           </Box>
           <VStack align="start" maxW="md" spacing={4}>
-            <Heading as="h3" size="lg">Gogi</Heading>
+            <Heading as="h3" size="lg">{t('about.mascot.name')}</Heading>
             <Text>
-              Meet Gogi, our friendly mascot! As a cute meat character with a halo, Gogi represents the Korean word "gogi" (meat) combined with learning enlightenment. Gogi guides users through their language learning journey, making the experience more engaging and fun.
+              {t('about.mascot.description')}
             </Text>
           </VStack>
         </Flex>

@@ -17,8 +17,10 @@ import {
   Flex,
 } from '@chakra-ui/react';
 import { FaEnvelope, FaGithub, FaTwitter } from 'react-icons/fa';
+import { useTranslation } from 'react-i18next';
 
 const ContactPage = () => {
+  const { t } = useTranslation();
   const bgColor = useColorModeValue('gray.50', 'gray.900');
   const cardBgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -26,10 +28,10 @@ const ContactPage = () => {
   return (
     <Container maxW="container.xl" py={10}>
       <VStack spacing={10} align="start">
-        <Heading as="h1" size="2xl">Contact Us</Heading>
+        <Heading as="h1" size="2xl">{t('contact.title')}</Heading>
         
         <Text fontSize="lg" maxW="3xl">
-          We're constantly improving Lingogi based on user feedback. If you have questions, suggestions, or just want to say hello, we'd love to hear from you!
+          {t('contact.intro')}
         </Text>
         
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={10} width="100%">
@@ -43,34 +45,34 @@ const ContactPage = () => {
             borderColor={borderColor}
           >
             <VStack spacing={5} align="start">
-              <Heading as="h3" size="md">Send Us a Message</Heading>
+              <Heading as="h3" size="md">{t('contact.form.title')}</Heading>
               
               <FormControl isRequired>
-                <FormLabel>Name</FormLabel>
-                <Input placeholder="Your name" />
+                <FormLabel>{t('contact.form.nameLabel')}</FormLabel>
+                <Input placeholder={t('contact.form.namePlaceholder')} />
               </FormControl>
               
               <FormControl isRequired>
-                <FormLabel>Email</FormLabel>
-                <Input placeholder="your.email@example.com" type="email" />
+                <FormLabel>{t('contact.form.emailLabel')}</FormLabel>
+                <Input placeholder={t('contact.form.emailPlaceholder')} type="email" />
               </FormControl>
               
               <FormControl isRequired>
-                <FormLabel>Subject</FormLabel>
-                <Input placeholder="How can we help you?" />
+                <FormLabel>{t('contact.form.subjectLabel')}</FormLabel>
+                <Input placeholder={t('contact.form.subjectPlaceholder')} />
               </FormControl>
               
               <FormControl isRequired>
-                <FormLabel>Message</FormLabel>
-                <Textarea placeholder="Tell us more..." rows={5} />
+                <FormLabel>{t('contact.form.messageLabel')}</FormLabel>
+                <Textarea placeholder={t('contact.form.messagePlaceholder')} rows={5} />
               </FormControl>
               
               <Button colorScheme="blue" size="lg" width="100%">
-                Send Message
+                {t('contact.form.sendButton')}
               </Button>
               
               <Text fontSize="sm" color="gray.500" mt={2}>
-                We'll get back to you as soon as possible.
+                {t('contact.form.responseTime')}
               </Text>
             </VStack>
           </Box>
@@ -87,7 +89,7 @@ const ContactPage = () => {
               width="100%"
             >
               <VStack spacing={5} align="start">
-                <Heading as="h3" size="md">Contact Information</Heading>
+                <Heading as="h3" size="md">{t('contact.info.title')}</Heading>
                 
                 <HStack spacing={4}>
                   <Flex
@@ -102,7 +104,7 @@ const ContactPage = () => {
                     <Icon as={FaEnvelope} boxSize={5} />
                   </Flex>
                   <VStack align="start" spacing={0}>
-                    <Text fontWeight="bold">Email</Text>
+                    <Text fontWeight="bold">{t('contact.info.emailLabel')}</Text>
                     <Text>contact@lingogi.com</Text>
                   </VStack>
                 </HStack>
@@ -119,7 +121,7 @@ const ContactPage = () => {
               width="100%"
             >
               <VStack spacing={5} align="start">
-                <Heading as="h3" size="md">Follow Us</Heading>
+                <Heading as="h3" size="md">{t('contact.social.title')}</Heading>
                 
                 <HStack spacing={4}>
                   <Flex
@@ -134,7 +136,7 @@ const ContactPage = () => {
                     <Icon as={FaGithub} boxSize={5} />
                   </Flex>
                   <VStack align="start" spacing={0}>
-                    <Text fontWeight="bold">GitHub</Text>
+                    <Text fontWeight="bold">{t('contact.social.githubLabel')}</Text>
                     <Text>github.com/lingogi</Text>
                   </VStack>
                 </HStack>
@@ -152,7 +154,7 @@ const ContactPage = () => {
                     <Icon as={FaTwitter} boxSize={5} />
                   </Flex>
                   <VStack align="start" spacing={0}>
-                    <Text fontWeight="bold">Twitter</Text>
+                    <Text fontWeight="bold">{t('contact.social.twitterLabel')}</Text>
                     <Text>@lingogi</Text>
                   </VStack>
                 </HStack>
@@ -169,9 +171,9 @@ const ContactPage = () => {
               width="100%"
             >
               <VStack spacing={5} align="start">
-                <Heading as="h3" size="md">Support Hours</Heading>
-                <Text>Monday - Friday: 9am - 5pm (KST)</Text>
-                <Text>We usually respond within 24 hours on business days.</Text>
+                <Heading as="h3" size="md">{t('contact.hours.title')}</Heading>
+                <Text>{t('contact.hours.schedule')}</Text>
+                <Text>{t('contact.hours.response')}</Text>
               </VStack>
             </Box>
           </VStack>

@@ -33,9 +33,11 @@ import {
   TabPanel,
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 
 const AdminDashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   const [cacheStats, setCacheStats] = useState<any>(null);
   const [cachedQueries, setCachedQueries] = useState<any[]>([]);
   const [bulkFetchStatus, setBulkFetchStatus] = useState<any>(null);
@@ -76,6 +78,24 @@ const AdminDashboardPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching cached queries:', error);
     }
+  };
+  
+  // Helper function to format bytes to human-readable format
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+  
+  // Calculate cache hit rate
+  const calculateHitRate = () => {
+    if (!cacheStats) return 0;
+    const total = (cacheStats.hits || 0) + (cacheStats.misses || 0);
+    if (total === 0) return 0;
+    return Math.round((cacheStats.hits / total) * 100);
   };
 
   const fetchBulkStatus = async () => {
@@ -167,15 +187,15 @@ const AdminDashboardPage: React.FC = () => {
     <Box p={5}>
       <VStack spacing={8} align="stretch">
         <Box>
-          <Heading as="h1" size="xl">Admin Dashboard</Heading>
-          <Text color="gray.600">Manage Lingogi system operations and view debugging information</Text>
+          <Heading as="h1" size="xl">{t('admin.dashboard')}</Heading>
+          <Text color="gray.600">{t('admin.dashboardDescription')}</Text>
         </Box>
 
         <Tabs variant="enclosed">
           <TabList>
             <Tab>System Status</Tab>
-            <Tab>Bulk Operations</Tab>
-            <Tab>Cache Management</Tab>
+            <Tab>{t('admin.bulkOperations')}</Tab>
+            <Tab>{t('admin.cacheManagement')}</Tab>
           </TabList>
 
           <TabPanels>
@@ -183,18 +203,18 @@ const AdminDashboardPage: React.FC = () => {
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={5}>
                 <Card>
                   <CardHeader>
-                    <Heading size="md">Admin Functions</Heading>
+                    <Heading size="md">{t('admin.functions')}</Heading>
                   </CardHeader>
                   <CardBody>
                     <VStack align="stretch" spacing={4}>
                       <Button as={RouterLink} to="/admin/tags" colorScheme="blue">
-                        Tag Manager
+                        {t('admin.tagManager')}
                       </Button>
                       <Button onClick={() => startBulkFetch("all")} colorScheme="green" isLoading={fetchInProgress}>
                         Start Bulk Fetch (All Languages)
                       </Button>
                       <Button onClick={clearCache} colorScheme="red">
-                        Clear Cache
+                        {t('admin.clearCache')}
                       </Button>
                     </VStack>
                   </CardBody>
@@ -202,7 +222,7 @@ const AdminDashboardPage: React.FC = () => {
 
                 <Card>
                   <CardHeader>
-                    <Heading size="md">Cache Statistics</Heading>
+                    <Heading size="md">{t('admin.cacheStatistics')}</Heading>
                   </CardHeader>
                   <CardBody>
                     {loading ? (
@@ -227,23 +247,23 @@ const AdminDashboardPage: React.FC = () => {
                         </Stat>
                       </Grid>
                     ) : (
-                      <Text>No cache statistics available</Text>
+                      <Text>{t('admin.noCacheStats')}</Text>
                     )}
                   </CardBody>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <Heading size="md">API Endpoints</Heading>
+                    <Heading size="md">{t('admin.apiEndpoints')}</Heading>
                   </CardHeader>
                   <CardBody>
                     <VStack align="stretch" spacing={2}>
-                      <Text fontWeight="bold">Backend API:</Text>
+                      <Text fontWeight="bold">{t('admin.backendApi')}</Text>
                       <Code p={2} borderRadius="md">http://localhost:8000</Code>
                       
-                      <Text fontWeight="bold" mt={2}>Documentation:</Text>
+                      <Text fontWeight="bold" mt={2}>{t('admin.documentationLabel')}</Text>
                       <Button as="a" href="http://localhost:8000/docs" target="_blank" size="sm" colorScheme="blue">
-                        OpenAPI Docs
+                        {t('admin.openapiDocs')}
                       </Button>
                     </VStack>
                   </CardBody>
@@ -253,14 +273,14 @@ const AdminDashboardPage: React.FC = () => {
 
             <TabPanel>
               <Box>
-                <Heading size="md" mb={4}>Bulk Operations</Heading>
+                <Heading size="md" mb={4}>{t('admin.bulkOperations')}</Heading>
                 
                 <Card mb={5}>
                   <CardHeader>
-                    <Heading size="sm">Start New Bulk Fetch</Heading>
+                    <Heading size="md">{t('admin.startNewBulkFetch')}</Heading>
                   </CardHeader>
                   <CardBody>
-                    <Text mb={4}>Select a language to fetch articles for:</Text>
+                    <Text mb={3}>{t('admin.selectLanguageToFetch')}</Text>
                     <HStack spacing={4}>
                       <Button onClick={() => startBulkFetch("ko")} colorScheme="blue" isLoading={fetchInProgress}>
                         Korean (ko)
@@ -277,12 +297,12 @@ const AdminDashboardPage: React.FC = () => {
                 
                 <Card>
                   <CardHeader>
-                    <Heading size="sm">Bulk Fetch Status</Heading>
+                    <Heading size="md">{t('admin.bulkFetchStatus')}</Heading>
                   </CardHeader>
                   <CardBody>
                     <HStack spacing={4} mb={4}>
                       <Button onClick={fetchBulkStatus} colorScheme="blue" isDisabled={!bulkFetchId}>
-                        Check Status
+                        {t('admin.checkStatus')}
                       </Button>
                       <Text>Current Operation ID: {bulkFetchId || "None"}</Text>
                     </HStack>
@@ -290,7 +310,7 @@ const AdminDashboardPage: React.FC = () => {
                     {bulkFetchStatus ? (
                       <VStack align="start" spacing={3}>
                         <HStack>
-                          <Text fontWeight="bold">Status:</Text>
+                          <Text fontWeight="bold">{t('admin.status')}</Text>
                           <Badge colorScheme={
                             bulkFetchStatus.status === "completed" ? "green" : 
                             bulkFetchStatus.status === "failed" ? "red" : "yellow"
@@ -300,23 +320,23 @@ const AdminDashboardPage: React.FC = () => {
                         </HStack>
                         
                         <HStack>
-                          <Text fontWeight="bold">Progress:</Text>
+                          <Text fontWeight="bold">{t('admin.progressLabel')}</Text>
                           <Text>{bulkFetchStatus.completed_steps || 0} / {bulkFetchStatus.total_steps || 0} steps</Text>
                         </HStack>
                         
                         <Box w="100%">
-                          <Text fontWeight="bold" mb={2}>Messages:</Text>
+                          <Text fontWeight="bold" mb={2}>{t('admin.messages')}</Text>
                           <Box p={3} bg="gray.50" borderRadius="md" maxH="200px" overflowY="auto">
                             {bulkFetchStatus.messages?.map((msg: string, i: number) => (
                               <Text key={i} fontSize="sm" mb={1}>{msg}</Text>
-                            )) || <Text>No messages available</Text>}
+                            )) || <Text>{t('admin.noMessagesAvailable')}</Text>}
                           </Box>
                         </Box>
                       </VStack>
                     ) : (
                       <Alert status="info">
                         <AlertIcon />
-                        <AlertDescription>Enter an operation ID and click "Check Status" to see details</AlertDescription>
+                        <AlertDescription>{t('admin.enterOperationIdAndCheckStatus')}</AlertDescription>
                       </Alert>
                     )}
                   </CardBody>
@@ -326,11 +346,11 @@ const AdminDashboardPage: React.FC = () => {
 
             <TabPanel>
               <Box>
-                <Heading size="md" mb={4}>Cache Management</Heading>
+                <Heading size="md" mb={4}>{t('admin.cacheManagement')}</Heading>
                 
                 <Card mb={5}>
                   <CardHeader>
-                    <Heading size="sm">Cached Queries</Heading>
+                    <Heading size="md">{t('admin.cachedQueries')}</Heading>
                   </CardHeader>
                   <CardBody>
                     <Box maxH="300px" overflowY="auto">
@@ -341,15 +361,15 @@ const AdminDashboardPage: React.FC = () => {
                               <CardBody>
                                 <Grid templateColumns="repeat(3, 1fr)" gap={2}>
                                   <Box>
-                                    <Text fontWeight="bold">Query:</Text>
+                                    <Text fontWeight="bold">{t('admin.query')}:</Text>
                                     <Text>{query.query}</Text>
                                   </Box>
                                   <Box>
-                                    <Text fontWeight="bold">Language:</Text>
+                                    <Text fontWeight="bold">{t('admin.language')}:</Text>
                                     <Badge>{query.language}</Badge>
                                   </Box>
                                   <Box>
-                                    <Text fontWeight="bold">Articles:</Text>
+                                    <Text fontWeight="bold">{t('admin.articles')}:</Text>
                                     <Badge colorScheme="blue">{query.article_count}</Badge>
                                   </Box>
                                 </Grid>
@@ -358,27 +378,27 @@ const AdminDashboardPage: React.FC = () => {
                           ))}
                         </VStack>
                       ) : (
-                        <Text>No cached queries found</Text>
+                        <Text>{t('admin.noCachedQueries')}</Text>
                       )}
                     </Box>
                   </CardBody>
                   <CardFooter>
-                    <Button onClick={clearCache} colorScheme="red" size="sm">Clear All Cache</Button>
+                    <Button onClick={clearCache} colorScheme="red" size="sm">{t('admin.clearAllCache')}</Button>
                   </CardFooter>
                 </Card>
                 
                 <Card>
                   <CardHeader>
-                    <Heading size="sm">Cache Info</Heading>
+                    <Heading size="md">{t('admin.cacheInfo')}</Heading>
                   </CardHeader>
                   <CardBody>
                     <Grid templateColumns="repeat(2, 1fr)" gap={4}>
                       <Box>
-                        <Text fontWeight="bold">Total Size:</Text>
-                        <Text>{cacheStats?.cache_size_bytes ? `${Math.round(cacheStats.cache_size_bytes / 1024)} KB` : 'Unknown'}</Text>
+                        <Text fontWeight="bold">{t('admin.totalSize')}:</Text>
+                        <Text>{formatBytes(cacheStats?.size || 0)}</Text>
                       </Box>
                       <Box>
-                        <Text fontWeight="bold">Hit Rate:</Text>
+                        <Text fontWeight="bold">{t('admin.hitRate')}</Text>
                         <Text>
                           {cacheStats ? 
                             `${Math.round((cacheStats.hits / (cacheStats.hits + cacheStats.misses || 1)) * 100)}%` : 

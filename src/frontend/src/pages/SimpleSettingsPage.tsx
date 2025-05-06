@@ -19,6 +19,7 @@ import {
 import { AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // Define the LearningLanguage interface locally
 interface LearningLanguage {
@@ -30,6 +31,7 @@ interface LearningLanguage {
 // Simple component for language settings
 const SimpleSettingsPage = () => {
   // All hooks at the top level
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const auth = useAuth();
@@ -182,7 +184,7 @@ const SimpleSettingsPage = () => {
       
       if (response.ok) {
         toast({
-          title: 'Settings saved',
+          title: t('settings.saveSuccess'),
           status: 'success',
           duration: 3000,
           isClosable: true,
@@ -204,7 +206,10 @@ const SimpleSettingsPage = () => {
     return (
       <Container maxW="container.md" py={10}>
         <Center h="300px">
-          <Spinner size="xl" />
+          <VStack spacing={3}>
+            <Spinner size="xl" />
+            <Text>{t('settings.loadingProfile')}</Text>
+          </VStack>
         </Center>
       </Container>
     );
@@ -213,14 +218,14 @@ const SimpleSettingsPage = () => {
   return (
     <Container maxW="container.md" py={10}>
       <VStack spacing={8} align="stretch">
-        <Heading>Language Settings</Heading>
+        <Heading>{t('settings.languageSettings')}</Heading>
         
         {error && <Text color="red.500">{error}</Text>}
         
         <Box p={5} shadow="md" borderWidth="1px" bg={bgColor}>
           <VStack spacing={4} align="stretch">
             <FormControl>
-              <FormLabel>Native Language</FormLabel>
+              <FormLabel>{t('settings.yourNativeLanguage')}</FormLabel>
               <Select 
                 value={nativeLanguage} 
                 onChange={(e) => setNativeLanguage(e.target.value)}
@@ -236,9 +241,9 @@ const SimpleSettingsPage = () => {
             </FormControl>
             
             <Box>
-              <Heading size="sm" mb={2}>Languages You're Learning</Heading>
+              <Heading size="sm" mb={2}>{t('settings.learningLanguages')}</Heading>
               {studyLanguages.length === 0 ? (
-                <Text color="gray.500">No languages added yet</Text>
+                <Text color="gray.500">{t('settings.noLanguagesAddedYetShort')}</Text>
               ) : (
                 <VStack align="stretch" spacing={2}>
                   {studyLanguages.map((lang, index) => (
@@ -247,14 +252,14 @@ const SimpleSettingsPage = () => {
                       <Text color="gray.500">{lang.proficiency}</Text>
                       {lang.isDefault && <Text color="green.500">(Default)</Text>}
                       <IconButton
-                        aria-label="Set as default"
+                        aria-label={t('settings.setAsDefault')}
                         icon={<CheckIcon />}
                         size="sm"
                         colorScheme={lang.isDefault ? 'green' : 'gray'}
                         onClick={() => handleSetDefaultLanguage(index)}
                       />
                       <IconButton
-                        aria-label="Remove language"
+                        aria-label={t('settings.removeLanguage')}
                         icon={<CloseIcon />}
                         size="sm"
                         colorScheme="red"
@@ -267,10 +272,10 @@ const SimpleSettingsPage = () => {
             </Box>
             
             <Box>
-              <Heading size="sm" mb={2}>Add Language</Heading>
+              <Heading size="sm" mb={2}>{t('settings.addLanguage')}</Heading>
               <HStack>
                 <Select 
-                  placeholder="Select language" 
+                  placeholder={t('settings.selectLanguage')} 
                   value={newLanguage}
                   onChange={(e) => setNewLanguage(e.target.value)}
                 >
@@ -295,7 +300,7 @@ const SimpleSettingsPage = () => {
                   colorScheme="blue"
                   onClick={handleAddLanguage}
                 >
-                  Add
+                  {t('settings.add')}
                 </Button>
               </HStack>
             </Box>
@@ -305,8 +310,9 @@ const SimpleSettingsPage = () => {
               mt={4} 
               onClick={handleSaveSettings} 
               isLoading={isSaving}
+              leftIcon={<CheckIcon />}
             >
-              Save Settings
+              {t('settings.saveSettings')}
             </Button>
           </VStack>
         </Box>

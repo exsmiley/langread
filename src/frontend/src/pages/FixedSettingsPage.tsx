@@ -22,6 +22,7 @@ import {
 import { AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // Define the LearningLanguage interface locally
 interface LearningLanguage {
@@ -33,6 +34,7 @@ interface LearningLanguage {
 // Fixed settings page component
 const FixedSettingsPage = () => {
   // All hooks at the top level
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const auth = useAuth();
@@ -301,7 +303,7 @@ const FixedSettingsPage = () => {
     } catch (err: any) { // Type assertion for better error handling
       console.error('[FixedSettingsPage] Error saving settings:', err?.response?.data || err);
       
-      let errorMessage = 'Failed to update settings';
+      let errorMessage = t('settings.failedToUpdate');
       
       if (err?.response) {
         // The request was made and the server responded with a status code
@@ -312,11 +314,11 @@ const FixedSettingsPage = () => {
         console.error('[FixedSettingsPage] Server response error:', err.response.status, err.response.data);
       } else if (err?.request) {
         // The request was made but no response was received
-        errorMessage = 'No response from server. Please check your network connection.';
+        errorMessage = t('settings.noServerResponse');
         console.error('[FixedSettingsPage] No response error:', err.request);
       } else {
         // Something happened in setting up the request
-        errorMessage = err?.message || 'Error preparing request';
+        errorMessage = err?.message || t('settings.errorPreparingRequest');
         console.error('[FixedSettingsPage] Request setup error:', err?.message);
       }
       
@@ -338,13 +340,13 @@ const FixedSettingsPage = () => {
   return (
     <Container maxW="800px" py={8}>
       <VStack spacing={6} align="stretch" bg={bgColor} p={6} borderRadius="md" boxShadow="md">
-        <Heading as="h1" size="xl">Language Settings</Heading>
+        <Heading as="h1" size="xl">{t('settings.languageSettings')}</Heading>
         
         {/* Native Language */}
         <Box>
-          <Heading as="h2" size="md" mb={4}>Your Native Language</Heading>
+          <Heading as="h2" size="md" mb={4}>{t('settings.yourNativeLanguage')}</Heading>
           <FormControl>
-            <FormLabel>Select your native language</FormLabel>
+            <FormLabel>{t('settings.selectYourNativeLanguage')}</FormLabel>
             <Select 
               value={nativeLanguage} 
               onChange={(e) => setNativeLanguage(e.target.value)}
@@ -361,12 +363,12 @@ const FixedSettingsPage = () => {
         
         {/* Study Languages */}
         <Box>
-          <Heading as="h2" size="md" mb={4}>Languages You're Learning</Heading>
+          <Heading as="h2" size="md" mb={4}>{t('settings.languagesYoureLearning')}</Heading>
           
           {/* Existing languages */}
           <VStack spacing={3} align="stretch" mb={6}>
             {studyLanguages.length === 0 ? (
-              <Text color="gray.500">No languages added yet. Add one below.</Text>
+              <Text color="gray.500">{t('settings.noLanguagesAddedYet')}</Text>
             ) : (
               studyLanguages.map((lang, index) => (
                 <HStack key={index} p={2} bg={lang.isDefault ? "blue.50" : "gray.50"} borderRadius="md">
@@ -386,7 +388,7 @@ const FixedSettingsPage = () => {
                   <HStack>
                     {!lang.isDefault && (
                       <IconButton
-                        aria-label="Set as default"
+                        aria-label={t('settings.setAsDefault')}
                         icon={<CheckIcon />}
                         size="sm"
                         colorScheme="blue"
@@ -394,14 +396,14 @@ const FixedSettingsPage = () => {
                       />
                     )}
                     <IconButton
-                      aria-label="Remove language"
+                      aria-label={t('settings.removeLanguage')}
                       icon={<CloseIcon />}
                       size="sm"
                       colorScheme="red"
                       onClick={() => handleRemoveLanguage(index)}
                     />
                   </HStack>
-                  {lang.isDefault && <Text fontSize="sm" color="blue.500">Default</Text>}
+                  {lang.isDefault && <Text fontSize="sm" color="blue.500">{t('settings.default')}</Text>}
                 </HStack>
               ))
             )}
@@ -410,11 +412,11 @@ const FixedSettingsPage = () => {
           {/* Add new language */}
           <HStack mb={4}>
             <FormControl flex="1">
-              <FormLabel>Language</FormLabel>
+              <FormLabel>{t('settings.language')}</FormLabel>
               <Select 
                 value={newLanguage} 
                 onChange={(e) => setNewLanguage(e.target.value)}
-                placeholder="Select language"
+                placeholder={t('settings.selectLanguage')}
               >
                 <option value="en">English</option>
                 <option value="ko">Korean</option>
@@ -425,7 +427,7 @@ const FixedSettingsPage = () => {
               </Select>
             </FormControl>
             <FormControl flex="1">
-              <FormLabel>Proficiency</FormLabel>
+              <FormLabel>{t('settings.proficiency')}</FormLabel>
               <Select 
                 value={newProficiency} 
                 onChange={(e) => setNewProficiency(e.target.value)}
@@ -436,7 +438,7 @@ const FixedSettingsPage = () => {
               </Select>
             </FormControl>
             <IconButton
-              aria-label="Add language"
+              aria-label={t('settings.addLanguage')}
               icon={<AddIcon />}
               mt={8}
               colorScheme="green"
@@ -457,7 +459,7 @@ const FixedSettingsPage = () => {
         {isSuccess && (
           <Alert status="success">
             <AlertIcon />
-            Settings updated successfully!
+            {t('settings.updatedSuccessfully')}
           </Alert>
         )}
         
@@ -467,9 +469,9 @@ const FixedSettingsPage = () => {
           size="lg" 
           onClick={handleSaveSettings}
           isLoading={isSaving}
-          loadingText="Saving..."
+          loadingText={t('settings.saving')}
         >
-          Save Settings
+          {t('settings.saveSettings')}
         </Button>
       </VStack>
     </Container>

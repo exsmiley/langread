@@ -20,8 +20,10 @@ import {
 } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 const ForgotPasswordPage: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,11 +41,11 @@ const ForgotPasswordPage: React.FC = () => {
 
   const validateEmail = () => {
     if (!email) {
-      setEmailError('Email is required');
+      setEmailError(t('auth.emailRequired'));
       return false;
     }
     if (!email.includes('@')) {
-      setEmailError('Please enter a valid email address');
+      setEmailError(t('auth.invalidEmail'));
       return false;
     }
     return true;
@@ -74,11 +76,11 @@ const ForgotPasswordPage: React.FC = () => {
           setResetLink(response.data.debug_link);
         }
       } else {
-        setError('Failed to process your request. Please try again.');
+        setError(t('auth.resetRequestFailed'));
       }
     } catch (err: any) {
       console.error('Error requesting password reset:', err);
-      setError(err.response?.data?.detail || 'Failed to process your request. Please try again.');
+      setError(err.response?.data?.detail || t('auth.resetRequestFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -88,9 +90,9 @@ const ForgotPasswordPage: React.FC = () => {
     <Container maxW="lg" py={{ base: '12', md: '24' }} px={{ base: '0', sm: '8' }}>
       <Stack spacing="8">
         <Stack spacing="6" align="center">
-          <Heading size="xl" fontWeight="bold">Reset your password</Heading>
+          <Heading size="xl" fontWeight="bold">{t('auth.resetPassword')}</Heading>
           <Text color="gray.500">
-            Enter your email address and we'll send you a link to reset your password
+            {t('auth.resetInstructions')}
           </Text>
         </Stack>
         
@@ -107,14 +109,14 @@ const ForgotPasswordPage: React.FC = () => {
             <Stack spacing="6">
               <Alert status="success" borderRadius="md">
                 <AlertIcon />
-                Check your email for a link to reset your password. If it doesn't appear within a few minutes, check your spam folder.
+                {t('auth.resetLinkSent')}
               </Alert>
               
               {/* This section is only for development/demonstration purposes */}
               {resetLink && (
                 <Box mt={4} p={4} bg="gray.50" borderRadius="md">
-                  <Text fontSize="sm" fontWeight="bold">Development Mode</Text>
-                  <Text fontSize="xs" mb={2}>This reset link would normally be sent via email:</Text>
+                  <Text fontSize="sm" fontWeight="bold">{t('common.developmentMode')}</Text>
+                  <Text fontSize="xs" mb={2}>{t('auth.resetLinkDemo')}</Text>
                   <Link as={RouterLink} to={resetLink.replace('http://localhost:5173', '')} color="blue.500" fontSize="sm" wordBreak="break-all">
                     {resetLink}
                   </Link>
@@ -122,7 +124,7 @@ const ForgotPasswordPage: React.FC = () => {
               )}
               
               <Link as={RouterLink} to="/signin" color="blue.500" textAlign="center">
-                Return to sign in
+                {t('auth.returnToSignIn')}
               </Link>
             </Stack>
           ) : (
@@ -137,12 +139,13 @@ const ForgotPasswordPage: React.FC = () => {
               <form onSubmit={handleSubmit}>
                 <Stack spacing="5">
                   <FormControl id="email" isInvalid={!!emailError}>
-                    <FormLabel>Email address</FormLabel>
+                    <FormLabel>{t('auth.emailAddress')}</FormLabel>
                     <Input
                       name="email"
                       type="email"
                       value={email}
                       onChange={handleEmailChange}
+                      placeholder={t('auth.emailPlaceholder')}
                     />
                     {emailError && <FormErrorMessage>{emailError}</FormErrorMessage>}
                   </FormControl>
@@ -154,16 +157,16 @@ const ForgotPasswordPage: React.FC = () => {
                     fontSize="md"
                     isLoading={isLoading}
                   >
-                    Send reset link
+                    {t('auth.sendResetLink')}
                   </Button>
                 </Stack>
               </form>
               
               <Stack pt={6}>
                 <Text align="center">
-                  Remember your password?{' '}
+                  {t('auth.rememberPassword')}{' '}
                   <Link as={RouterLink} to="/signin" color="blue.500">
-                    Sign in
+                    {t('auth.signIn')}
                   </Link>
                 </Text>
               </Stack>

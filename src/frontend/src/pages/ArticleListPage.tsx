@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, FormEvent, ChangeEvent } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLanguagePreferences } from '../hooks/useLanguagePreferences';
 import {
   Box,
@@ -28,12 +29,13 @@ import {
   useToast,
   Alert,
   AlertIcon,
+  AlertTitle,
+  AlertDescription,
   Badge,
   SimpleGrid,
-  Image,
-  Divider
+  Image
 } from '@chakra-ui/react';
-import { SearchIcon, ChevronUpIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { SearchIcon } from '@chakra-ui/icons';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../api';
@@ -100,7 +102,7 @@ const getArticleDescription = (article: Article | any): string => {
 };
 
 const getArticleSource = (article: Article | any): string => {
-  // If no source, return unknown
+  // If article has no source, return unknown
   if (!article?.source) return 'Unknown Source';
   
   const source = article.source;
@@ -196,57 +198,9 @@ const getArticleImageUrl = (article: Article | any): string => {
     }
   }
 
-  // Use high-quality defaults based on language and topics
-  // These are beautiful, topic-specific images that work well as article covers
-  const language = article?.language || 'en';
-  const topics = Array.isArray(article?.topics) ? article.topics : [];
-  const tagIds = Array.isArray(article?.tag_ids) ? article.tag_ids : [];
-  
-  // Get a deterministic but seemingly random image based on article ID
-  // This ensures the same article always gets the same image but different articles get different images
-  const getConsistentRandomValue = (max: number, seed: string) => {
-    // Simple hash function
-    let hash = 0;
-    for (let i = 0; i < seed.length; i++) {
-      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-      hash |= 0; // Convert to 32bit integer
-    }
-    // Get a value between 0 and max-1
-    return Math.abs(hash) % max;
-  };
-  
-  // Korean-specific high quality images for various topics
-  const koreanImages = [
-    'https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7', // Seoul skyline
-    'https://images.unsplash.com/photo-1538485399081-7c8ed8f9fbfe', // Korean street
-    'https://images.unsplash.com/photo-1585023523603-be7898ba6aac', // Korean palace
-    'https://images.unsplash.com/photo-1548115184-bc6544d06a58', // Korean technology
-    'https://images.unsplash.com/photo-1546874177-9e664107314e', // Korean business district
-    'https://images.unsplash.com/photo-1588411393236-d2524cca2710', // Korean market
-    'https://images.unsplash.com/photo-1605538795375-22e881db42fd', // Korean cafe
-    'https://images.unsplash.com/photo-1599624927761-8fe85504ec77'  // Korean garden
-  ];
-  
-  // Default images for other languages
-  const defaultImages = {
-    en: 'https://images.unsplash.com/photo-1499951360447-b19be8fe80f5',
-    es: 'https://images.unsplash.com/photo-1503152394-c571994fd383',
-    fr: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34',
-    de: 'https://images.unsplash.com/photo-1560969184-10fe8719e047',
-    ja: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e',
-    zh: 'https://images.unsplash.com/photo-1547981609-4b6bfe67ca0b'
-  };
-  
-  if (language === 'ko') {
-    // For Korean articles, use our specially curated Korean images
-    const seed = article?._id || article?.title || 'default';
-    const imageIndex = getConsistentRandomValue(koreanImages.length, seed);
-    return koreanImages[imageIndex];
-  }
-  
-  // For other languages, use the default image for that language
-  return defaultImages[language as keyof typeof defaultImages] || defaultImages.en;
-};
+  // Default placeholder image
+  return 'https://via.placeholder.com/800x400?text=No+Image';
+}
 
 const getArticleContent = (article: Article | any): string => {
   // Handle content as an array of sections (as used in the API)
@@ -265,7 +219,14 @@ const getArticleDifficulty = (article: Article | any): string => {
   return article?.difficulty || 'intermediate';
 };
 
+const getArticleWordCount = (article: Article | any): number => {
+  return article?.word_count || 0;
+};
+
 const ArticleListPage: React.FC = () => {
+  // Get translation function
+  const { t } = useTranslation();
+  
   // State management with URL parameters
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
@@ -322,14 +283,14 @@ const ArticleListPage: React.FC = () => {
 
   // Language options for dropdown
   const languageOptions = [
-    { value: 'en', label: 'English' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'fr', label: 'French' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'de', label: 'German' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'ru', label: 'Russian' }
+    { value: 'en', label: t('settings.languages.english') },
+    { value: 'ko', label: t('settings.languages.korean') },
+    { value: 'fr', label: t('settings.languages.french') },
+    { value: 'es', label: t('settings.languages.spanish') },
+    { value: 'de', label: t('settings.languages.german') },
+    { value: 'ja', label: t('settings.languages.japanese') },
+    { value: 'zh', label: t('settings.languages.chinese') },
+    { value: 'ru', label: t('settings.languages.russian') }
   ];
   
   // Initial helper function to extract topics from articles
@@ -496,7 +457,7 @@ const ArticleListPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching articles:', error);
-      setError('Failed to load articles. Please try again later.');
+      setError(t('errors.somethingWentWrong'));
     } finally {
       setLoading(false);
     }
@@ -527,25 +488,24 @@ const ArticleListPage: React.FC = () => {
     <Container maxW="container.xl" py={5}>
       <VStack spacing={8} align="stretch">
         <Box>
-          <Heading as="h1" size="xl" mb={4}>Browse Articles</Heading>
-          <Text color="gray.600">Find articles in your target language based on your interests.</Text>
+          <Heading as="h1" size="xl" mb={4}>{t('articles.browse')}</Heading>
+          <Text color="gray.600">{t('articles.browseDescription')}</Text>
         </Box>
 
         <Box bg={formBgColor} p={6} borderRadius="md" boxShadow={boxShadow}>
           <form onSubmit={handleSubmit}>
             <VStack spacing={5} align="stretch">
               <FormControl id="targetLanguage" isRequired>
-                <FormLabel fontWeight="bold">Target Language</FormLabel>
+                <FormLabel fontWeight="bold">{t('articles.language')}</FormLabel>
                 <Select
                   value={targetLanguage}
                   onChange={(e) => {
                     const newLanguage = e.target.value;
                     setTargetLanguage(newLanguage);
-                    // Reset tags when language changes
                     setSelectedTags([]);
                     setSelectedTagIds([]);
                   }}
-                  placeholder="Select target language"
+                  placeholder={t('articles.selectLanguage')}
                 >
                   {languageOptions.map(lang => (
                     <option key={lang.value} value={lang.value}>{lang.label}</option>
@@ -554,7 +514,7 @@ const ArticleListPage: React.FC = () => {
               </FormControl>
 
               <FormControl id="difficultyLevel" isRequired>
-                <FormLabel fontWeight="bold">Difficulty Level</FormLabel>
+                <FormLabel fontWeight="bold">{t('articles.difficulty')}</FormLabel>
                 <RadioGroup 
                   value={difficulty} 
                   onChange={(newDifficulty) => {
@@ -562,32 +522,30 @@ const ArticleListPage: React.FC = () => {
                   }}
                 >
                   <Stack direction="row" spacing={4}>
-                    <Radio value="beginner">Beginner</Radio>
-                    <Radio value="intermediate">Intermediate</Radio>
-                    <Radio value="advanced">Advanced</Radio>
+                    <Radio value="beginner">{t('articles.difficulty_beginner')}</Radio>
+                    <Radio value="intermediate">{t('articles.difficulty_intermediate')}</Radio>
+                    <Radio value="advanced">{t('articles.difficulty_advanced')}</Radio>
                   </Stack>
                 </RadioGroup>
               </FormControl>
 
               <FormControl id="tagSelection">
-                <FormLabel fontWeight="bold">Select Tags</FormLabel>
+                <FormLabel fontWeight="bold">{t('articles.tags')}</FormLabel>
                 
-                {/* Add search bar for tags */}
                 <InputGroup mb={3}>
                   <InputLeftElement pointerEvents="none">
                     <SearchIcon color="gray.400" />
                   </InputLeftElement>
                   <Input
-                    placeholder="Search for tags..."
+                    placeholder={`${t('common.search')}...`}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </InputGroup>
 
-                {/* Selected Tags */}
                 {selectedTags.length > 0 && (
                   <Box mb={4}>
-                    <Text fontSize="sm" mb={2}>Selected Tags:</Text>
+                    <Text fontSize="sm" mb={2}>{t('articles.selectedTags')}</Text>
                     <Wrap>
                       {selectedTags.map(tag => (
                         <WrapItem key={tag._id}>
@@ -610,7 +568,6 @@ const ArticleListPage: React.FC = () => {
                   </Box>
                 )}
 
-                {/* Available Tags */}
                 <Box maxH="150px" overflowY="auto" p={2} borderWidth="1px" borderRadius="md">
                   {tagsLoading ? (
                     <Flex justify="center" align="center" h="100px">
@@ -645,12 +602,12 @@ const ArticleListPage: React.FC = () => {
                     </Wrap>
                   ) : (
                     <Text textAlign="center" color="gray.500" py={4}>
-                      No tags found for this language.
+                      {t('articles.noTags')}
                     </Text>
                   )}
                 </Box>
               </FormControl>
-
+              
               <Button
                 type="submit"
                 colorScheme="blue"
@@ -659,7 +616,7 @@ const ArticleListPage: React.FC = () => {
                 isLoading={loading}
                 onClick={() => setSearchInitiated(true)}
               >
-                Find Articles
+                {t('articles.search')}
               </Button>
             </VStack>
           </form>
@@ -668,18 +625,22 @@ const ArticleListPage: React.FC = () => {
         {error && (
           <Alert status="error" mb={4}>
             <AlertIcon />
-            {error}
+            <AlertTitle>{t('common.error')}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         {loading ? (
           <Flex justify="center" py={10}>
-            <Spinner size="xl" />
+            <VStack spacing={4}>
+              <Spinner size="xl" />
+              <Text>{t('articles.loading')}</Text>
+            </VStack>
           </Flex>
         ) : articles.length > 0 ? (
           <>
             <Heading as="h2" size="lg" mt={6} mb={4} ref={articlesResultsRef}>
-              {articles.length} Articles Found
+              {articles.length} {t('articles.articlesFound')}
             </Heading>
             
             <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
@@ -694,7 +655,7 @@ const ArticleListPage: React.FC = () => {
                   transition="all 0.2s"
                   _hover={{ transform: 'translateY(-4px)', boxShadow: 'lg' }}
                   h="100%"
-                  bg="white"
+                  bg={formBgColor}
                 >
                   <Image
                     src={getArticleImageUrl(article)}
@@ -711,14 +672,11 @@ const ArticleListPage: React.FC = () => {
                       {getArticleDescription(article)}
                     </Text>
                     <Flex justify="space-between" align="center">
+                      <Text fontSize="sm" color="gray.500">{t('articles.source')}: {getArticleSource(article)}</Text>
                       <Text fontSize="sm" color="gray.500">
-                        {getArticleSource(article)}
-                      </Text>
-                      <Text fontSize="sm" color="gray.500">
-                        {new Date(getArticleDate(article)).toLocaleDateString()}
+                        {t('articles.publishedOn')} {new Date(getArticleDate(article)).toLocaleDateString()}
                       </Text>
                     </Flex>
-                    {/* Display article tags but filter out unwanted ones */}
                     {getArticleTopicsFn(article).length > 0 && (
                       <HStack mt={3} spacing={2} flexWrap="wrap">
                         {getArticleTopicsFn(article).slice(0, 3).map((topic: string, i: number) => (
@@ -728,6 +686,9 @@ const ArticleListPage: React.FC = () => {
                         ))}
                       </HStack>
                     )}
+                    <Button size="sm" colorScheme="blue" mt={4}>
+                      {t('articles.readMore')}
+                    </Button>
                   </Box>
                 </Box>
               ))}
@@ -735,8 +696,8 @@ const ArticleListPage: React.FC = () => {
           </>
         ) : !loading && !error && searchInitiated ? (
           <Box textAlign="center" py={10}>
-            <Heading as="h2" size="lg" mb={4}>No Articles Found</Heading>
-            <Text>Try adjusting your search criteria or selecting different tags.</Text>
+            <Heading as="h2" size="lg" mb={4}>{t('articles.noArticles')}</Heading>
+            <Text>{t('articles.adjustSearch')}</Text>
           </Box>
         ) : null}
       </VStack>

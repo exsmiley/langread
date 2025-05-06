@@ -41,6 +41,7 @@ import {
 } from '@chakra-ui/react';
 import { SearchIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 
 type Tag = {
@@ -85,6 +86,7 @@ const languageNames: Record<string, string> = {
 };
 
 const AdminTagsPage: React.FC = () => {
+  const { t } = useTranslation();
   const [tags, setTags] = useState<Tag[]>([]);
   const [filteredTags, setFilteredTags] = useState<Tag[]>([]);
   const [stats, setStats] = useState<TagStats | null>(null);
@@ -124,7 +126,7 @@ const AdminTagsPage: React.FC = () => {
     } catch (error) {
       console.error('Error fetching tags:', error);
       toast({
-        title: 'Error fetching tags',
+        title: t('admin.errorFetchingTags'),
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -217,7 +219,7 @@ const AdminTagsPage: React.FC = () => {
       ));
       
       toast({
-        title: `Tag ${active ? 'activated' : 'deactivated'}`,
+        title: t('admin.tagActivated', { active }),
         status: 'success',
         duration: 2000,
         isClosable: true,
@@ -228,7 +230,7 @@ const AdminTagsPage: React.FC = () => {
     } catch (error) {
       console.error(`Error ${active ? 'activating' : 'deactivating'} tag:`, error);
       toast({
-        title: `Error ${active ? 'activating' : 'deactivating'} tag`,
+        title: t('admin.errorActivatingTag', { active }),
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -242,7 +244,7 @@ const AdminTagsPage: React.FC = () => {
   };
 
   const handleDeleteTag = async (tagId: string) => {
-    if (!window.confirm('Are you sure you want to delete this tag? This action cannot be undone.')) {
+    if (!window.confirm(t('admin.confirmDeleteTag'))) {
       return;
     }
 
@@ -253,7 +255,7 @@ const AdminTagsPage: React.FC = () => {
       setTags(tags.filter(tag => tag._id !== tagId));
       
       toast({
-        title: 'Tag deleted',
+        title: t('admin.tagDeleted'),
         status: 'success',
         duration: 2000,
         isClosable: true,
@@ -264,7 +266,7 @@ const AdminTagsPage: React.FC = () => {
     } catch (error) {
       console.error('Error deleting tag:', error);
       toast({
-        title: 'Error deleting tag',
+        title: t('admin.errorDeletingTag'),
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -288,7 +290,7 @@ const AdminTagsPage: React.FC = () => {
       ));
       
       toast({
-        title: 'Tag updated',
+        title: t('admin.tagUpdated'),
         status: 'success',
         duration: 2000,
         isClosable: true,
@@ -302,7 +304,7 @@ const AdminTagsPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating tag:', error);
       toast({
-        title: 'Error updating tag',
+        title: t('admin.errorUpdatingTag'),
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -347,42 +349,35 @@ const AdminTagsPage: React.FC = () => {
 
   return (
     <Box p={5}>
-      <Heading mb={5}>Tag Management</Heading>
+      <Heading as="h1" size="xl" mb={8}>{t('admin.tagManagement')}</Heading>
 
       {/* Stats Section */}
       {stats && (
         <Box mb={6} p={4} borderWidth="1px" borderRadius="lg">
-          <Heading size="md" mb={3}>Tag Statistics</Heading>
-          <Flex wrap="wrap" gap={6}>
-            <Box>
-              <Text fontWeight="bold">Total Tags:</Text>
-              <Text fontSize="xl">{stats.total}</Text>
-            </Box>
-            <Box>
-              <Text fontWeight="bold">Active Tags:</Text>
-              <Text fontSize="xl">{stats.by_active?.true || 0}</Text>
-            </Box>
-            <Box>
-              <Text fontWeight="bold">Inactive Tags:</Text>
-              <Text fontSize="xl">{stats.by_active?.false || 0}</Text>
-            </Box>
-            <Box>
-              <Text fontWeight="bold">Top Languages:</Text>
-              <HStack mt={1} spacing={2}>
-                {Object.entries(stats.by_language || {})
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
-                  .map(([lang, count]) => (
-                    <Tag size="md" key={lang} colorScheme="blue">
-                      <TagLabel>{languageNames[lang] || lang}: {count}</TagLabel>
-                    </Tag>
-                  ))}
-              </HStack>
-            </Box>
-          </Flex>
+          <Heading size="md" mb={4}>{t('admin.tagStatistics')}</Heading>
+          
+          <Box p={4} borderWidth="1px" borderRadius="md">
+            <Text mb={2} fontWeight="bold">{t('admin.totalTags')} {stats.total || 0}</Text>
+            
+            <Text mb={2} fontWeight="bold">{t('admin.activeTags')} {stats.by_active?.true || 0}</Text>
+            
+            <Text mb={2} fontWeight="bold">{t('admin.inactiveTags')} {stats.by_active?.false || 0}</Text>
+            
+            <Text fontWeight="bold">{t('admin.topLanguages')}</Text>
+            <HStack mt={1} spacing={2}>
+              {Object.entries(stats.by_language || {})
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(([lang, count]) => (
+                  <Tag size="md" key={lang} colorScheme="blue">
+                    <TagLabel>{languageNames[lang] || lang}: {count}</TagLabel>
+                  </Tag>
+                ))}
+            </HStack>
+          </Box>
           
           <Box mt={4}>
-            <Text fontWeight="bold" mb={2}>Most Used Tags:</Text>
+            <Text fontWeight="bold" mb={2}>{t('admin.mostUsedTags')}</Text>
             <HStack spacing={2} wrap="wrap">
               {stats.popular_tags?.map(tag => (
                 <Tag size="md" key={tag.id} colorScheme="green">
@@ -396,7 +391,7 @@ const AdminTagsPage: React.FC = () => {
 
       {/* Filters Section */}
       <Box mb={6} p={4} borderWidth="1px" borderRadius="lg">
-        <Heading size="md" mb={3}>Filters</Heading>
+        <Heading size="md" mb={3}>{t('admin.filters')}</Heading>
         <Flex flexWrap="wrap" gap={4}>
           <Box flex="1" minW="250px">
             <InputGroup>
@@ -404,7 +399,7 @@ const AdminTagsPage: React.FC = () => {
                 <SearchIcon color="gray.300" />
               </InputLeftElement>
               <Input
-                placeholder="Search tags..."
+                placeholder={t('admin.searchTags')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -412,7 +407,7 @@ const AdminTagsPage: React.FC = () => {
           </Box>
           <Box flex="1" minW="200px">
             <Select
-              placeholder="Filter by language"
+              placeholder={t('admin.filterByLanguage')}
               value={languageFilter}
               onChange={(e) => setLanguageFilter(e.target.value)}
             >
@@ -424,28 +419,28 @@ const AdminTagsPage: React.FC = () => {
           </Box>
           <Box flex="1" minW="200px">
             <Select
-              placeholder="Filter by status"
+              placeholder={t('admin.filterByStatus')}
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="auto_approved">Auto-Approved</option>
+              <option value="active">{t('admin.active')}</option>
+              <option value="inactive">{t('admin.inactive')}</option>
+              <option value="auto_approved">{t('admin.autoApproved')}</option>
             </Select>
           </Box>
           <Box flex="1" minW="200px">
             <Menu>
               <MenuButton as={Button} rightIcon={<ChevronDownIcon />} w="100%">
-                Sort: {sortBy === 'name' ? 'Name' : sortBy === 'article_count' ? 'Usage' : 'Date Created'} ({sortOrder === 'asc' ? 'Ascending' : 'Descending'})
+                Sort: {sortBy === 'name' ? t('admin.name') : sortBy === 'article_count' ? t('admin.usage') : t('admin.dateCreated')} ({sortOrder === 'asc' ? t('admin.ascending') : t('admin.descending')})
               </MenuButton>
               <MenuList>
-                <MenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }}>Name (A-Z)</MenuItem>
-                <MenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }}>Name (Z-A)</MenuItem>
-                <MenuItem onClick={() => { setSortBy('article_count'); setSortOrder('desc'); }}>Most Used</MenuItem>
-                <MenuItem onClick={() => { setSortBy('article_count'); setSortOrder('asc'); }}>Least Used</MenuItem>
-                <MenuItem onClick={() => { setSortBy('created_at'); setSortOrder('desc'); }}>Newest First</MenuItem>
-                <MenuItem onClick={() => { setSortBy('created_at'); setSortOrder('asc'); }}>Oldest First</MenuItem>
+                <MenuItem onClick={() => { setSortBy('name'); setSortOrder('asc'); }}>{t('admin.nameAZ')}</MenuItem>
+                <MenuItem onClick={() => { setSortBy('name'); setSortOrder('desc'); }}>{t('admin.nameZA')}</MenuItem>
+                <MenuItem onClick={() => { setSortBy('article_count'); setSortOrder('desc'); }}>{t('admin.mostUsed')}</MenuItem>
+                <MenuItem onClick={() => { setSortBy('article_count'); setSortOrder('asc'); }}>{t('admin.leastUsed')}</MenuItem>
+                <MenuItem onClick={() => { setSortBy('created_at'); setSortOrder('desc'); }}>{t('admin.newestFirst')}</MenuItem>
+                <MenuItem onClick={() => { setSortBy('created_at'); setSortOrder('asc'); }}>{t('admin.oldestFirst')}</MenuItem>
               </MenuList>
             </Menu>
           </Box>
@@ -462,12 +457,12 @@ const AdminTagsPage: React.FC = () => {
           <Table variant="simple">
             <Thead>
               <Tr>
-                <Th>Tag Name</Th>
-                <Th>Language</Th>
-                <Th>Translations</Th>
-                <Th isNumeric>Articles</Th>
-                <Th>Status</Th>
-                <Th>Actions</Th>
+                <Th>{t('admin.tagName')}</Th>
+                <Th>{t('admin.language')}</Th>
+                <Th>{t('admin.translations')}</Th>
+                <Th isNumeric>{t('admin.articles')}</Th>
+                <Th>{t('admin.status')}</Th>
+                <Th>{t('admin.actions')}</Th>
               </Tr>
             </Thead>
             <Tbody>
@@ -483,7 +478,7 @@ const AdminTagsPage: React.FC = () => {
                         </Tag>
                       ))}
                       {(!tag.translations || Object.keys(tag.translations).length === 0) && (
-                        <Text color="gray.500" fontSize="sm">No translations</Text>
+                        <Text color="gray.500" fontSize="sm">{t('admin.noTranslations')}</Text>
                       )}
                     </HStack>
                   </Td>
@@ -491,10 +486,10 @@ const AdminTagsPage: React.FC = () => {
                   <Td>
                     <HStack spacing={2}>
                       <Badge colorScheme={tag.active ? "green" : "red"}>
-                        {tag.active ? "Active" : "Inactive"}
+                        {tag.active ? t('admin.active') : t('admin.inactive')}
                       </Badge>
                       {tag.auto_approved && (
-                        <Badge colorScheme="blue">Auto-Approved</Badge>
+                        <Badge colorScheme="blue">{t('admin.autoApproved')}</Badge>
                       )}
                     </HStack>
                   </Td>
@@ -505,13 +500,13 @@ const AdminTagsPage: React.FC = () => {
                         colorScheme={tag.active ? "red" : "green"}
                         onClick={() => handleTagActivation(tag._id, !tag.active)}
                       >
-                        {tag.active ? "Deactivate" : "Activate"}
+                        {tag.active ? t('admin.deactivate') : t('admin.activate')}
                       </Button>
                       <Button
                         size="sm"
                         onClick={() => handleEditTag(tag)}
                       >
-                        Edit
+                        {t('admin.edit')}
                       </Button>
                       <Button
                         size="sm"
@@ -519,7 +514,7 @@ const AdminTagsPage: React.FC = () => {
                         variant="outline"
                         onClick={() => handleDeleteTag(tag._id)}
                       >
-                        Delete
+                        {t('admin.delete')}
                       </Button>
                     </HStack>
                   </Td>
@@ -531,7 +526,9 @@ const AdminTagsPage: React.FC = () => {
 
         {!loading && filteredTags.length === 0 && (
           <Box textAlign="center" p={10}>
-            <Text fontSize="lg">No tags found matching your filters.</Text>
+            <Text fontSize="lg" color="gray.500">
+              {t('admin.noTagsFound')}
+            </Text>
           </Box>
         )}
       </Box>
@@ -540,13 +537,13 @@ const AdminTagsPage: React.FC = () => {
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Edit Tag</ModalHeader>
+          <ModalHeader>{t('admin.editTag')}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             {currentTag && (
               <Box>
                 <FormControl mb={4}>
-                  <FormLabel>Tag Name (English, Canonical)</FormLabel>
+                  <FormLabel>{t('admin.tagName')}</FormLabel>
                   <Input 
                     value={currentTag.name} 
                     onChange={(e) => setCurrentTag({...currentTag, name: e.target.value})}
@@ -554,7 +551,7 @@ const AdminTagsPage: React.FC = () => {
                 </FormControl>
                 
                 <FormControl mb={4}>
-                  <FormLabel>Original Language</FormLabel>
+                  <FormLabel>{t('admin.originalLanguage')}</FormLabel>
                   <Input 
                     value={languageNames[currentTag.original_language] || currentTag.original_language} 
                     isReadOnly
@@ -562,19 +559,19 @@ const AdminTagsPage: React.FC = () => {
                 </FormControl>
                 
                 <FormControl mb={4} display="flex" alignItems="center">
-                  <FormLabel mb={0}>Active</FormLabel>
+                  <FormLabel mb={0}>{t('admin.active')}</FormLabel>
                   <Switch 
                     isChecked={currentTag.active}
                     onChange={(e) => setCurrentTag({...currentTag, active: e.target.checked})}
                     isDisabled={currentTag.auto_approved}
                   />
                   {currentTag.auto_approved && (
-                    <Badge ml={2} colorScheme="blue">Auto-Approved</Badge>
+                    <Badge ml={2} colorScheme="blue">{t('admin.autoApproved')}</Badge>
                   )}
                 </FormControl>
 
                 <Box mb={4}>
-                  <FormLabel>Translations</FormLabel>
+                  <FormLabel>{t('admin.translations')}</FormLabel>
                   {currentTag.translations && Object.entries(currentTag.translations).map(([lang, translation]) => (
                     <Flex key={lang} mb={2} align="center">
                       <Text width="80px" fontWeight="medium">{lang}:</Text>
@@ -584,7 +581,7 @@ const AdminTagsPage: React.FC = () => {
                         mr={2}
                       />
                       <IconButton
-                        aria-label="Remove translation"
+                        aria-label={t('admin.removeTranslation')}
                         icon={<TagCloseButton />}
                         size="sm"
                         onClick={() => handleRemoveTranslation(lang)}

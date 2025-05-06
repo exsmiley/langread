@@ -1,7 +1,14 @@
 import React from 'react';
 import { Box, Container, Stack, Text, Link, useColorModeValue } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 
 const Footer = () => {
+  const { t } = useTranslation();
+  const currentYear = new Date().getFullYear();
+  
+  // Replace the year in the copyright message
+  const copyright = t('footer.copyright').replace('2023-2025', `2023-${currentYear}`);
+  
   return (
     <Box
       bg={useColorModeValue('gray.50', 'gray.900')}
@@ -18,12 +25,12 @@ const Footer = () => {
         justify={{ base: 'center', md: 'space-between' }}
         align={{ base: 'center', md: 'center' }}
       >
-        <Text>© {new Date().getFullYear()} Lingogi. All rights reserved</Text>
+        <Text>{copyright}</Text>
         <Stack direction={'row'} spacing={6}>
-          <Link href={'/privacy'}>Privacy</Link>
-          <Link href={'/terms'}>Terms</Link>
-          <Link href={'/about'}>About</Link>
-          <Link href={'/contact'}>Contact</Link>
+          <Link href={'/privacy'}>{t('footer.privacy')}</Link>
+          <Link href={'/terms'}>{t('footer.terms')}</Link>
+          <Link href={'/about'}>{t('footer.about')}</Link>
+          <Link href={'/contact'}>{t('footer.contact')}</Link>
         </Stack>
       </Container>
     </Box>

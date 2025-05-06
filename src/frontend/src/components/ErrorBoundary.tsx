@@ -1,4 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { type i18n } from 'i18next';
+import i18nInstance from '../i18n/i18n';
 import { 
   Box, 
   Heading, 
@@ -84,7 +86,7 @@ class ErrorBoundary extends Component<Props, State> {
           
           <VStack spacing={4} align="stretch">
             <Box>
-              <Heading size="md" mb={2}>Error Details</Heading>
+              <Heading size="md" mb={2}>{getTranslation('components.errorBoundary.errorDetails', 'Error Details')}</Heading>
               <Code p={3} borderRadius="md" width="100%" overflow="auto" display="block" whiteSpace="pre-wrap">
                 {error?.toString()}
               </Code>
@@ -92,7 +94,7 @@ class ErrorBoundary extends Component<Props, State> {
             
             {errorInfo && (
               <Box>
-                <Heading size="md" mb={2}>Component Stack</Heading>
+                <Heading size="md" mb={2}>{getTranslation('components.errorBoundary.componentStack', 'Component Stack')}</Heading>
                 <Code p={3} borderRadius="md" width="100%" overflow="auto" display="block" whiteSpace="pre-wrap">
                   {errorInfo.componentStack}
                 </Code>
@@ -101,7 +103,7 @@ class ErrorBoundary extends Component<Props, State> {
             
             <Box pt={4}>
               <Button colorScheme="blue" onClick={this.handleResetError}>
-                Back to Home
+                {getTranslation('components.errorBoundary.backToHome', 'Back to Home')}
               </Button>
             </Box>
           </VStack>
@@ -111,6 +113,17 @@ class ErrorBoundary extends Component<Props, State> {
 
     // Render children when there's no error
     return children;
+  }
+}
+
+// Helper function to get translations with fallback
+const getTranslation = (key: string, fallback: string): string => {
+  try {
+    const translation = i18nInstance.t(key);
+    return translation || fallback;
+  } catch (error) {
+    console.error(`Failed to translate ${key}:`, error);
+    return fallback;
   }
 }
 

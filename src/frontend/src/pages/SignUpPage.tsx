@@ -7,6 +7,7 @@ import {
   FormControl,
   FormLabel,
   FormErrorMessage,
+  FormHelperText,
   Heading,
   Input,
   Stack,
@@ -26,8 +27,10 @@ import {
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 const SignUpPage = () => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -60,7 +63,7 @@ const SignUpPage = () => {
       const response = await axios.get(`http://localhost:8000/api/auth/check-email/${encodeURIComponent(email)}`);
       
       if (response.data && response.data.exists) {
-        setEmailError('This email is already registered');
+        setEmailError(t('auth.emailAlreadyRegistered'));
       } else {
         setEmailError('');
       }
@@ -109,19 +112,19 @@ const SignUpPage = () => {
     
     // Basic validation
     if (emailError) {
-      setError('Please use a different email address');
+      setError(t('auth.useDifferentEmail'));
       setIsLoading(false);
       return;
     }
     
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.passwordsDoNotMatch'));
       setIsLoading(false);
       return;
     }
     
     if (!formData.agreeToTerms) {
-      setError('You must agree to the terms of service');
+      setError(t('auth.mustAgreeToTerms'));
       setIsLoading(false);
       return;
     }
@@ -143,11 +146,11 @@ const SignUpPage = () => {
         navigate('/');
       } else {
         console.error('Registration failed');
-        setError('Failed to create account. Please try again.');
+        setError(t('auth.signUpFailed'));
       }
     } catch (err: any) {
       console.error('Registration error (outer):', err);
-      setError(err.response?.data?.detail || 'Failed to create account. Please try again.');
+      setError(err.response?.data?.detail || t('auth.signUpFailed'));
       setIsLoading(false);
     }
   };
@@ -156,9 +159,9 @@ const SignUpPage = () => {
     <Container maxW="lg" py={{ base: '12', md: '24' }} px={{ base: '0', sm: '8' }}>
       <Stack spacing="8">
         <Stack spacing="6" align="center">
-          <Heading size="xl" fontWeight="bold">Create your account</Heading>
+          <Heading size="xl" fontWeight="bold">{t('auth.createAccount')}</Heading>
           <Text color="gray.500">
-            Join Lingogi to improve your language skills
+            {t('auth.joinLingogi')}
           </Text>
         </Stack>
         
@@ -181,23 +184,24 @@ const SignUpPage = () => {
           <form onSubmit={handleSubmit}>
             <Stack spacing="6">
               <FormControl id="name" isRequired>
-                <FormLabel>Name</FormLabel>
+                <FormLabel>{t('auth.name')}</FormLabel>
                 <Input 
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Your name"
+                  placeholder={t('auth.namePlaceholder')}
                 />
               </FormControl>
               
               <FormControl id="email" isRequired isInvalid={!!emailError}>
-                <FormLabel>Email address</FormLabel>
+                <FormLabel>{t('auth.emailAddress')}</FormLabel>
                 <InputGroup>
                   <Input
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
+                    placeholder={t('auth.emailPlaceholder')}
                   />
                   {isCheckingEmail && (
                     <InputRightElement>
@@ -209,7 +213,7 @@ const SignUpPage = () => {
               </FormControl>
               
               <FormControl id="password" isRequired>
-                <FormLabel>Password</FormLabel>
+                <FormLabel>{t('auth.password')}</FormLabel>
                 <InputGroup>
                   <Input 
                     type={showPassword ? 'text' : 'password'} 
@@ -220,7 +224,7 @@ const SignUpPage = () => {
                   />
                   <InputRightElement>
                     <IconButton
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                       icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
                       onClick={() => setShowPassword(!showPassword)}
                       variant="ghost"
@@ -232,7 +236,7 @@ const SignUpPage = () => {
               </FormControl>
               
               <FormControl id="confirmPassword" isRequired>
-                <FormLabel>Confirm Password</FormLabel>
+                <FormLabel>{t('auth.confirmPassword')}</FormLabel>
                 <Input 
                   type={showPassword ? 'text' : 'password'} 
                   name="confirmPassword"
@@ -244,18 +248,22 @@ const SignUpPage = () => {
               
               <Stack spacing={4}>
                 <FormControl id="learningLanguage" isRequired>
-                  <FormLabel>Language You're Learning</FormLabel>
+                  <FormLabel>{t('auth.learningLanguage')}</FormLabel>
                   <Select 
                     name="learningLanguage"
                     value={formData.learningLanguage}
                     onChange={handleChange}
                   >
-                    <option value="ko">Korean</option>
-                    <option value="en">English</option>
-                    <option value="ja">Japanese</option>
-                    <option value="zh">Chinese</option>
+                    <option value="ko">{t('settings.languages.korean')}</option>
+                    <option value="en">{t('settings.languages.english')}</option>
+                    <option value="ja">{t('settings.languages.japanese')}</option>
+                    <option value="zh">{t('settings.languages.chinese')}</option>
+                    <option value="es">{t('settings.languages.spanish')}</option>
+                    <option value="fr">{t('settings.languages.french')}</option>
+                    <option value="de">{t('settings.languages.german')}</option>
+                    <option value="ru">{t('settings.languages.russian')}</option>
                   </Select>
-                  <FormHelperText>You can change your language preferences later in your profile settings</FormHelperText>
+                  <FormHelperText>{t('auth.languageChangeHelp')}</FormHelperText>
                 </FormControl>
               </Stack>
               
@@ -265,7 +273,7 @@ const SignUpPage = () => {
                   isChecked={formData.agreeToTerms}
                   onChange={handleCheckboxChange}
                 >
-                  I agree to the <Link as={RouterLink} to="/terms" color="blue.500">Terms of Service</Link> and <Link as={RouterLink} to="/privacy" color="blue.500">Privacy Policy</Link>
+                  {t('auth.agreeToTerms')} <Link as={RouterLink} to="/terms" color="blue.500">{t('auth.termsOfService')}</Link> {t('common.and')} <Link as={RouterLink} to="/privacy" color="blue.500">{t('auth.privacyPolicy')}</Link>
                 </Checkbox>
               </FormControl>
               
@@ -276,14 +284,14 @@ const SignUpPage = () => {
                 fontSize="md"
                 isLoading={isLoading}
               >
-                Create Account
+                {t('auth.createAccount')}
               </Button>
             </Stack>
           </form>
         </Box>
         
         <Flex justifyContent="center">
-          <Text>Already have an account? <Link as={RouterLink} to="/signin" color="blue.500">Sign in</Link></Text>
+          <Text>{t('auth.alreadyHaveAccount')} <Link as={RouterLink} to="/signin" color="blue.500">{t('auth.signIn')}</Link></Text>
         </Flex>
       </Stack>
     </Container>

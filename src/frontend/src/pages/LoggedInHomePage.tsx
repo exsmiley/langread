@@ -18,8 +18,10 @@ import { Link as RouterLink } from 'react-router-dom';
 import { FaBook, FaPencilAlt, FaRegListAlt } from 'react-icons/fa';
 import { MdTranslate } from 'react-icons/md';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 const LoggedInHomePage = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   
   const bgColor = useColorModeValue('white', 'gray.800');
@@ -53,13 +55,16 @@ const LoggedInHomePage = () => {
         >
           <VStack align="start" spacing={4}>
             <Heading as="h1" size="xl">
-              Welcome back, {user?.name}!
+              {t('home.welcomeBack', { name: user?.name })}
             </Heading>
             <Text fontSize="lg" color="gray.600">
-              Continue your language learning journey with Lingogi
+              {t('home.continueJourney')}
             </Text>
             <Text>
-              You're learning <Text as="span" fontWeight="bold" color={accentColor}>{getLanguageName(user?.learning_language || 'ko')}</Text>
+              {/* Don't use the t() function with JSX directly - break it into parts */}
+              {t('home.youreLearning', { language: '' })}
+              <Text as="span" fontWeight="bold" color={accentColor}> {getLanguageName(user?.learning_language || 'ko')}</Text>
+              {t('home.youreLearningEnd')}
             </Text>
             
             <HStack spacing={4} pt={4}>
@@ -70,7 +75,7 @@ const LoggedInHomePage = () => {
                 size="lg"
                 leftIcon={<FaBook />}
               >
-                Find Articles
+                {t('home.findArticles')}
               </Button>
               <Button 
                 as={RouterLink} 
@@ -80,7 +85,7 @@ const LoggedInHomePage = () => {
                 variant="outline"
                 leftIcon={<MdTranslate />}
               >
-                My Vocabulary
+                {t('nav.vocabulary')}
               </Button>
             </HStack>
           </VStack>
@@ -89,23 +94,23 @@ const LoggedInHomePage = () => {
         {/* Quick Stats */}
         <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
           <StatCard 
-            title="Articles Read" 
+            title={t('home.articlesRead')} 
             value="0" 
-            description="Start reading to track progress" 
+            description={t('home.articlesReadDesc')} 
             icon={FaBook} 
             color="blue.500"
           />
           <StatCard 
-            title="Words Learned" 
+            title={t('home.wordsLearned')} 
             value="0" 
-            description="Words added to your collection" 
+            description={t('home.wordsLearnedDesc')} 
             icon={MdTranslate} 
             color="green.500"
           />
           <StatCard 
-            title="Study Sessions" 
+            title={t('home.studySessions')} 
             value="0" 
-            description="Practice sessions completed" 
+            description={t('home.studySessionsDesc')} 
             icon={FaPencilAlt} 
             color="purple.500"
           />
@@ -113,12 +118,12 @@ const LoggedInHomePage = () => {
         
         {/* Recommended Articles */}
         <Box>
-          <Heading size="md" mb={4}>Recommended for You</Heading>
+          <Heading size="md" mb={4}>{t('home.recommendedForYou')}</Heading>
           <Divider mb={6} />
           
           <VStack spacing={4} align="stretch">
             <Text color="gray.500">
-              Start exploring articles to get personalized recommendations based on your interests and learning level.
+              {t('home.startExploring')}
             </Text>
             <Button 
               as={RouterLink} 
@@ -128,7 +133,7 @@ const LoggedInHomePage = () => {
               leftIcon={<FaRegListAlt />}
               alignSelf="flex-start"
             >
-              Browse All Articles
+              {t('home.browseAllArticles')}
             </Button>
           </VStack>
         </Box>

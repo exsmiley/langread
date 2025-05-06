@@ -25,13 +25,17 @@ import {
   ModalHeader,
   ModalFooter,
   ModalBody,
-  ModalCloseButton
+  ModalCloseButton,
+  Tooltip,
+  Icon
 } from '@chakra-ui/react';
-import { AddIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
+import { AddIcon, CheckIcon, CloseIcon, InfoIcon } from '@chakra-ui/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { getToken } from '../utils/tokenUtils';
+import { LANGUAGE_OPTIONS, useLanguagePreferences } from '../contexts/LanguageContext';
 
 // Define the LearningLanguage interface
 interface LearningLanguage {
@@ -40,23 +44,12 @@ interface LearningLanguage {
   isDefault?: boolean;
 }
 
-// Define language options
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'ru', label: 'Russian' },
-];
-
 /**
  * Settings page wrapper component
  * This separates authentication logic from the main content
  */
 const SettingsPage = () => {
+  const { t } = useTranslation();
   // Basic non-context state
   const [isReady, setIsReady] = useState(false);
   
@@ -94,11 +87,24 @@ const SettingsPage = () => {
  * Main settings page content component
  * Only rendered after authentication is confirmed
  */
-// Simple page content without dependency on context hooks
 const SettingsPageContent = () => {
   // Get references passed from parent
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const auth = useAuth();
+  const { setUILanguage } = useLanguagePreferences();
+  
+  // Define language options with translations
+  const LANGUAGE_OPTIONS = [
+    { value: 'en', label: t('settings.languages.english') },
+    { value: 'ko', label: t('settings.languages.korean') },
+    { value: 'ja', label: t('settings.languages.japanese') },
+    { value: 'zh', label: t('settings.languages.chinese') },
+    { value: 'es', label: t('settings.languages.spanish') },
+    { value: 'fr', label: t('settings.languages.french') },
+    { value: 'de', label: t('settings.languages.german') },
+    { value: 'ru', label: t('settings.languages.russian') }
+  ];
   
   // Local state first - before any potential context dependencies
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -201,13 +207,13 @@ const SettingsPageContent = () => {
   const handleAddLanguage = () => {
     // Validate input
     if (!newLanguage) {
-      setError('Please select a language');
+      setError(t('settings.selectLanguage'));
       return;
     }
     
     // Check if language already exists
     if (studyLanguages.some(lang => lang.language === newLanguage)) {
-      setError('You are already studying this language');
+      setError(t('settings.languageAlreadyAdded'));
       return;
     }
     
@@ -273,7 +279,7 @@ const SettingsPageContent = () => {
       // Get the authentication token
       const token = getToken();
       if (!token) {
-        setError('Authentication token not found. Please sign in again.');
+        setError(t('settings.authenticationTokenNotFound'));
         setIsSaving(false);
         return;
       }
@@ -298,11 +304,14 @@ const SettingsPageContent = () => {
         console.log('[SettingsPage] API request successful:', response.data);
         
         // Success notification
-        console.log('Profile saved successfully!');
+        console.log(t('settings.saveSuccess'));
         
         // Update the user data in AuthContext to reflect the changes
         await auth.updateUser();
         console.log('[SettingsPage] User context updated after save');
+        
+        // Ensure UI language matches the user's native language
+        setUILanguage(nativeLanguage);
         
         setSaveSuccess(true);
         setHasChanges(false);
@@ -312,15 +321,15 @@ const SettingsPageContent = () => {
         // Display a more detailed error message
         const errorMessage = err?.response?.data?.detail ||
                          err?.message ||
-                         'Failed to update profile. Please check your connection and try again.';
+                         t('settings.failedToUpdateProfile');
         
         setError(errorMessage);
         
-        console.error('Failed to save profile. Please try again.');
+        console.error(t('settings.failedToSaveProfile'));
       }
     } catch (err: any) {
       console.error('Failed to update profile:', err);
-      setError(err.response?.data?.detail || 'Failed to update profile. Please try again.');
+      setError(err.response?.data?.detail || t('settings.failedToUpdateProfile'));
     } finally {
       setIsSaving(false);
     }
@@ -333,9 +342,9 @@ const SettingsPageContent = () => {
   
   const getProficiencyLabel = (value: string) => {
     switch(value) {
-      case 'beginner': return 'Beginner';
-      case 'intermediate': return 'Intermediate';
-      case 'advanced': return 'Advanced';
+      case 'beginner': return t('articles.difficulty_beginner');
+      case 'intermediate': return t('articles.difficulty_intermediate');
+      case 'advanced': return t('articles.difficulty_advanced');
       default: return value;
     }
   };
@@ -345,12 +354,12 @@ const SettingsPageContent = () => {
   return (
     <Container maxW="container.md" py={10}>
       <VStack spacing={8} align="stretch">
-        <Heading as="h1" size="xl">Account Settings</Heading>
+        <Heading as="h1" size="xl">{t('settings.title')}</Heading>
         
         {saveSuccess && (
           <Alert status="success">
             <AlertIcon />
-            Your settings have been saved successfully!
+            {t('settings.saveSuccess')}
           </Alert>
         )}
         
@@ -363,10 +372,10 @@ const SettingsPageContent = () => {
         
         <Box p={6} bg="white" borderRadius="md" borderWidth="1px" borderColor="gray.200">
           <VStack spacing={6} align="stretch">
-            <Heading as="h2" size="md">Personal Information</Heading>
+            <Heading as="h2" size="md">{t('settings.personalInfo')}</Heading>
             
             <FormControl>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>{t('settings.name')}</FormLabel>
               <Input
                 value={name}
                 onChange={(e) => {
@@ -377,21 +386,31 @@ const SettingsPageContent = () => {
             </FormControl>
             
             <FormControl>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{t('settings.email')}</FormLabel>
               <Input
                 value={email}
                 isReadOnly
                 bg="gray.100"
               />
-              <FormHelperText>Email cannot be changed</FormHelperText>
+              <FormHelperText>{t('settings.emailReadOnly')}</FormHelperText>
             </FormControl>
             
             <FormControl>
-              <FormLabel>My Native Language</FormLabel>
+              <FormLabel>
+                <Flex align="center">
+                  {t('settings.userNativeLanguage')}
+                  <Tooltip label={t('settings.nativeLanguageAffectsUI')} placement="top">
+                    <Icon as={InfoIcon} ml={2} boxSize={4} color="blue.500" />
+                  </Tooltip>
+                </Flex>
+              </FormLabel>
               <Select
                 value={nativeLanguage}
                 onChange={(e) => {
-                  setNativeLanguage(e.target.value);
+                  const selectedLang = e.target.value;
+                  setNativeLanguage(selectedLang);
+                  // Also update the UI language to match the native language
+                  setUILanguage(selectedLang);
                   setHasChanges(true);
                 }}
               >
@@ -406,16 +425,16 @@ const SettingsPageContent = () => {
         <Box p={6} bg="white" borderRadius="md" borderWidth="1px" borderColor="gray.200">
           <VStack spacing={6} align="stretch">
             <Flex justify="space-between" align="center">
-              <Heading as="h2" size="md">Languages I'm Learning</Heading>
+              <Heading as="h2" size="md">{t('settings.learningLanguages')}</Heading>
               <Button leftIcon={<AddIcon />} colorScheme="blue" size="sm" onClick={onOpen}>
-                Add Language
+                {t('settings.addLanguage')}
               </Button>
             </Flex>
             
             {studyLanguages.length === 0 ? (
               <Alert status="info">
                 <AlertIcon />
-                You haven't added any languages to study. Add a language to get started.
+                {t('settings.noLanguagesAdded')}
               </Alert>
             ) : (
               <VStack spacing={4} align="stretch">
@@ -434,7 +453,7 @@ const SettingsPageContent = () => {
                       <Text fontWeight="bold">{getLanguageLabel(lang.language)}</Text>
                       <HStack>
                         <Tag size="sm" colorScheme={lang.isDefault ? 'blue' : 'gray'}>
-                          {lang.isDefault ? 'Default' : 'Additional'}
+                          {lang.isDefault ? t('settings.default') : t('settings.additional')}
                         </Tag>
                         <Tag size="sm">
                           {getProficiencyLabel(lang.proficiency)}
@@ -449,7 +468,7 @@ const SettingsPageContent = () => {
                           variant="outline" 
                           onClick={() => handleSetDefaultLanguage(index)}
                         >
-                          Make Default
+                          {t('settings.makeDefault')}
                         </Button>
                       )}
                       <Button 
@@ -459,7 +478,7 @@ const SettingsPageContent = () => {
                         isDisabled={studyLanguages.length === 1}
                         onClick={() => handleRemoveLanguage(index)}
                       >
-                        Remove
+                        {t('settings.remove')}
                       </Button>
                     </HStack>
                   </Flex>
@@ -471,21 +490,22 @@ const SettingsPageContent = () => {
         
         <Flex justify="flex-end">
           <Button 
-            colorScheme="blue" 
-            isLoading={isSaving} 
-            isDisabled={!hasChanges || studyLanguages.length === 0}
+            disabled={!hasChanges || isSaving}
+            colorScheme="green"
             onClick={handleSaveSettings}
+            isLoading={isSaving}
+            mt={4}
           >
-            Save Changes
+            {t('settings.saveChanges')}
           </Button>
         </Flex>
       </VStack>
-      
+
       {/* Add Language Modal */}
       <Modal isOpen={isModalOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>
-          <ModalHeader>Add New Language</ModalHeader>
+          <ModalHeader>{t('settings.addNewLanguage')}</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
             <VStack spacing={4}>
@@ -497,12 +517,12 @@ const SettingsPageContent = () => {
               )}
               
               <FormControl isRequired>
-                <FormLabel>Language</FormLabel>
+                <FormLabel>{t('settings.language')}</FormLabel>
                 <Select 
                   value={newLanguage} 
                   onChange={(e) => setNewLanguage(e.target.value)}
                 >
-                  <option value="">Select a language</option>
+                  <option value="">{t('settings.selectLanguage')}</option>
                   {LANGUAGE_OPTIONS.map(lang => (
                     <option 
                       key={lang.value} 
@@ -516,14 +536,14 @@ const SettingsPageContent = () => {
               </FormControl>
               
               <FormControl>
-                <FormLabel>Proficiency Level</FormLabel>
+                <FormLabel>{t('settings.proficiencyLevel')}</FormLabel>
                 <Select 
                   value={newProficiency}
                   onChange={(e) => setNewProficiency(e.target.value)}
                 >
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
+                  <option value="beginner">{t('articles.difficulty_beginner')}</option>
+                  <option value="intermediate">{t('articles.difficulty_intermediate')}</option>
+                  <option value="advanced">{t('articles.difficulty_advanced')}</option>
                 </Select>
               </FormControl>
             </VStack>
@@ -531,10 +551,14 @@ const SettingsPageContent = () => {
           
           <ModalFooter>
             <Button variant="ghost" mr={3} onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </Button>
-            <Button colorScheme="blue" onClick={handleAddLanguage}>
-              Add Language
+            <Button 
+              colorScheme="blue" 
+              onClick={handleAddLanguage}
+              isDisabled={!newLanguage}
+            >
+              {t('settings.addLanguage')}
             </Button>
           </ModalFooter>
         </ModalContent>

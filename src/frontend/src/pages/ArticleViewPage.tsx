@@ -27,6 +27,7 @@ import {
   Checkbox
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import axios from 'axios';
 import { useLanguagePreferences, LANGUAGE_OPTIONS } from '../contexts/LanguageContext';
@@ -675,13 +676,16 @@ const ArticleViewPage = () => {
     }
   };
   
+  // Get translation function
+  const { t } = useTranslation();
+
   // Render loading state
   if (isLoading) {
     return (
       <Container maxW="container.md" py={10} centerContent>
         <VStack spacing={4}>
           <Spinner size="xl" />
-          <Text>Loading article...</Text>
+          <Text>{t('common.loading')}</Text>
         </VStack>
       </Container>
     );
@@ -693,11 +697,11 @@ const ArticleViewPage = () => {
       <Container maxW="container.md" py={10}>
         <Alert status="error" borderRadius="md" mb={6}>
           <AlertIcon />
-          <AlertTitle mr={2}>Error loading article</AlertTitle>
+          <AlertTitle mr={2}>{t('errors.somethingWentWrong')}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <Button colorScheme="blue" onClick={() => navigate('/articles')}>
-          Back to articles
+          {t('articles.browse')}
         </Button>
       </Container>
     );
@@ -713,7 +717,7 @@ const ArticleViewPage = () => {
         variant="outline" 
         onClick={() => navigate('/articles')}
       >
-        Back to articles
+        {t('articles.browse')}
       </Button>
       
       {article && (
@@ -778,7 +782,7 @@ const ArticleViewPage = () => {
             <Box mb={6} w="100%">
               <Image 
                 src={article.image_url} 
-                alt="Article illustration" 
+                alt={t('articles.illustration')} 
                 borderRadius="md"
                 width="100%"
                 maxHeight="400px"
@@ -871,7 +875,7 @@ const ArticleViewPage = () => {
               {isTranslating ? (
                 <VStack align="center" spacing={4} py={2}>
                   <Spinner size="md" color="blue.500" />
-                  <Box fontSize="sm">Translating "{selectedText}"...</Box>
+                  <Box fontSize="sm">{t('common.loading')} "{selectedText}"...</Box>
                 </VStack>
               ) : translation ? (
                 <VStack align="start" spacing={2}>
@@ -887,7 +891,7 @@ const ArticleViewPage = () => {
                   )}
                   {translation.examples && translation.examples.length > 0 && (
                     <VStack width="100%" mt={2} align="start" spacing={1}>
-                      <Box fontSize="xs" fontWeight="bold" color="gray.500">EXAMPLES</Box>
+                      <Box fontSize="xs" fontWeight="bold" color="gray.500">{t('reading.examples').toUpperCase()}</Box>
                       {translation.examples.map((example, i) => (
                         <Box key={i} fontSize="xs" fontStyle="italic">{example}</Box>
                       ))}
@@ -901,22 +905,22 @@ const ArticleViewPage = () => {
                       variant="outline"
                       onClick={() => {
                         toast({
-                          title: "Added to flashcards",
-                          description: `${translation.word} added to your vocabulary list`,
+                          title: t('reading.addedToVocabulary'),
+                          description: `${translation.word}`,
                           status: "success",
                           duration: 2000,
                           isClosable: true,
                         });
                       }}
                     >
-                      Add to Flashcards
+                      {t('reading.addToVocabulary')}
                     </Button>
                     <Button 
                       size="xs" 
                       variant="ghost"
                       onClick={popoverProps.onClose}
                     >
-                      Close
+                      {t('common.close')}
                     </Button>
                   </Flex>
                 </VStack>
@@ -930,7 +934,7 @@ const ArticleViewPage = () => {
           <Box mt={8} p={4} borderRadius="md" bg={useColorModeValue('gray.50', 'gray.800')}>
             <Flex direction="column" gap={3} mt={2}>
               <Flex alignItems="center" justify="space-between" wrap="wrap" gap={2}>
-                <Text fontWeight="bold">Translation Language:</Text>
+                <Text fontWeight="bold">{t('reading.translateTo')}:</Text>
                 <Select 
                   value={targetLanguage === article?.language ? 
                           (article?.language === 'en' ? 'ko' : 'en') : 
@@ -963,17 +967,17 @@ const ArticleViewPage = () => {
                   colorScheme="blue"
                   mr={2}
                 >
-                  Use article's native language for definitions
+                  {t('reading.showOriginal')}
                 </Checkbox>
                 <Box as="span" fontSize="sm" color="gray.500">
-                  ({article?.language === 'ko' ? '한국어' : 'English'})
+                  ({article?.language === 'ko' ? t('reading.korean') : t('reading.english')})
                 </Box>
               </Flex>
             </Flex>
             <Text fontSize="sm" color="gray.500" mt={2}>
-              Select any text in the article for instant {useNativeLanguage ? 'definitions in the article\'s native language' : `translation to ${LANGUAGE_OPTIONS.find(l => l.value === targetLanguage)?.label || 'English'}`}.
+              {t('reading.highlightText')}{useNativeLanguage ? '' : ` ${LANGUAGE_OPTIONS.find(l => l.value === targetLanguage)?.label || t('reading.english')}`}.
               <Box mt={1} fontStyle="italic">
-                Tip: Selecting words with some surrounding context for better translations.
+                {t('reading.translationSettings')}
               </Box>
             </Text>
           </Box>
@@ -982,7 +986,7 @@ const ArticleViewPage = () => {
           <Box mt={10} pt={6} borderTop="1px" borderColor={borderColor}>
             <HStack justify="space-between">
               <Text fontSize="sm" color="gray.600">
-                Language: {article.language === 'ko' ? '한국어' : 'English'}
+                {t('articles.language')}: {article.language === 'ko' ? t('reading.korean') : t('reading.english')}
               </Text>
               {article.url && (
                 <Button 
@@ -993,7 +997,7 @@ const ArticleViewPage = () => {
                   size="sm" 
                   variant="outline"
                 >
-                  View original article
+                  {t('articles.viewArticle')}
                 </Button>
               )}
             </HStack>
