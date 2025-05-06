@@ -25,15 +25,53 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguagePreferences, LANGUAGE_OPTIONS } from '../contexts/LanguageContext';
+import axios from 'axios';
+import { getToken } from '../utils/tokenUtils';
 
 const Navbar = () => {
   const { t } = useTranslation();
   const { isOpen, onToggle } = useDisclosure();
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut, updateUser } = useAuth();
   const { uiLanguage, setUILanguage, getNativeLanguageName } = useLanguagePreferences();
   const navigate = useNavigate();
+  
+  // Handle language change from globe selector
+  const handleLanguageChange = async (lang: string) => {
+    // First update UI language for immediate visual feedback
+    setUILanguage(lang);
+    
+    // If user is authenticated, also update their native language in the database
+    if (isAuthenticated && user) {
+      try {
+        const token = getToken();
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+        
+        // Update the user's native language in the database
+        await axios.put(
+          'http://localhost:8000/api/user/profile',
+          { native_language: lang },
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        // Refresh user data in context
+        await updateUser();
+        
+        console.log(`Native language updated to ${lang} successfully`);
+      } catch (error) {
+        console.error('Failed to update native language:', error);
+      }
+    }
+  };
 
   return (
     <Box>
@@ -104,7 +142,7 @@ const Navbar = () => {
               {LANGUAGE_OPTIONS.map(lang => (
                 <MenuItem 
                   key={lang.value} 
-                  onClick={() => setUILanguage(lang.value)}
+                  onClick={() => handleLanguageChange(lang.value)}
                   fontWeight={uiLanguage === lang.value ? 'bold' : 'normal'}
                 >
                   <Flex align="center">

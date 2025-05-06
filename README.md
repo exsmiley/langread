@@ -75,23 +75,39 @@ npm install
 cd ../..
 ```
 
-#### 2. Configure Environment Variables
+#### 2. Start MongoDB
+
+**IMPORTANT**: This application requires MongoDB to be running. The application expects to connect to the `langread-mongodb` Docker container that contains the application data.
+
+```bash
+# Start the existing MongoDB container (preferred method)
+docker start langread-mongodb
+
+# If the container doesn't exist, create it with:
+docker run --name langread-mongodb -d -p 27017:27017 mongo:latest
+```
+
+> **Note**: Always use the container name `langread-mongodb` to maintain data consistency.
+
+#### 3. Configure Environment Variables
 
 Create a `.env` file in the project root with your API keys:
 
 ```
 OPENAI_API_KEY=your_api_key_here
-MONGODB_URI=your_mongodb_uri_here
+MONGODB_URI=mongodb://localhost:27017/lingogi
 ```
 
-#### 3. Start the Services
+#### 4. Start the Services
 
 Start the backend server:
 
 ```bash
 cd src/api
-uvicorn main:app --reload --port 8000
+uvicorn main:app --reload --port 8000  # IMPORTANT: Always use port 8000
 ```
+
+> **WARNING**: The backend server MUST run on port 8000. Using any other port (like 9000) will break the application, as the frontend is configured to connect to port 8000.
 
 In a new terminal, start the frontend server:
 
@@ -103,7 +119,9 @@ npm run dev
 #### 4. Access the Application
 
 - **Frontend:** http://localhost:5173
+- **Backend:** http://localhost:8000 (MUST use port 8000)
 - **API Documentation:** http://localhost:8000/docs
+- **MongoDB:** Uses Docker container named `langread-mongodb`
 - **Mascot:** The Lingogi mascot is a cute meat character with a halo, playing on the Korean word "gogi" (meat) and "ring/ling"
 
 ### Stopping the Services
